@@ -1,0 +1,36 @@
+# Debug mode
+debug: false
+# If false, you will have to set players tags alone
+default_tags: true
+# If true, storage will be allowed to store non tagged players,
+# NOTE: if set to false, 'money get' will not work for untagged accounts
+allow_empty_tags: false
+# Storage system
+storage:
+  #   Available storage type (Please fill related connection section)
+  #   (NoSQL)   |=>  ElasticSearch
+  type: ElasticSearch
+  elasticsearch:
+    prefix: "bank-"
+    hostname: "elasticsearch"
+    port: "9200"
+    username: "user"
+    password: "pass"
+    # Number of indices shard replications, do not modify it if you don't know what you are doing !
+    replicas: 0
+
+# Messages
+messages:
+  prefix: "&6[SocieteMileKat] "
+
+# Advanced users ONLY
+# Need 'default_tags' to false
+custom_tags:
+  # List of text tags (Will be stored as String keyword) [Max value 256 chars]
+  string: ["name", "uuid"]
+  # Specific number value [Max number length 20 chars]
+  integer: []
+  long: []
+  double: []
+  # True/False value
+  boolean: []

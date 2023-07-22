@@ -1,0 +1,19 @@
+name: SocieteMileKat
+author: MileKat
+main: fr.milekat.societe.Main
+version: 1.0.0
+api-version: '1.20'
+description: "API/Plugin to create custom shops"
+libraries:
+  # Utils
+  - com.fasterxml.jackson.core:jackson-databind:2.15.2
+  - com.fasterxml.jackson.core:jackson-annotations:2.15.2
+  - com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.2
+  # Storage
+  - co.elastic.clients:elasticsearch-java:8.7.1
+commands:
+  money:
+    description: "Money management command"
+    permission: "money.admin"
+    permission-message: "You can't perform this command"
+    usage: /money
