@@ -1,5 +1,6 @@
 package fr.milekat.societe.storage.adapter.elasticsearch;
 
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
@@ -7,6 +8,8 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.bulk.CreateOperation;
 import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.elasticsearch.indices.CreateIndexResponse;
+import co.elastic.clients.transport.endpoints.BooleanResponse;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import fr.milekat.societe.Main;
 import fr.milekat.societe.storage.StorageImplementation;
@@ -26,8 +29,8 @@ public class ESStorage implements StorageImplementation {
     private final String numberOfReplicas;
     private final Map<Class<?>, List<String>> tagsFormats = new HashMap<>();
     private final boolean allowEmptyTags;
-    private final ESConnection DB;
-    private final Map<UUID, BulkOperation> moneyChanges = new HashMap<>();
+    private final ESConnector DB;
+    private final Map<UUID, BulkOperation> moneyOperations = new HashMap<>();
 
     /*
         Main DB
@@ -45,11 +48,11 @@ public class ESStorage implements StorageImplementation {
             tagsFormats.put(Boolean.class, config.getStringList("custom_tags.boolean"));
         }
         this.allowEmptyTags = config.getBoolean("allow_empty_tags", false);
-        try {
-            DB = new ESConnection(config);
-            Main.debug(DB.getClient().cluster().health().toString());
+        DB = new ESConnector(config);
+        try (ESConnection connection = DB.getConnection()) {
+            Main.debug(connection.getClient().cluster().health().toString());
             saveOperation();
-        } catch (IOException e) {
+        } catch (IOException exception) {
             throw new StorageLoaderException("Error while trying to load ElasticSearch cluster");
         }
     }
@@ -59,32 +62,37 @@ public class ESStorage implements StorageImplementation {
         String index = "operations";
         //  Check if index exist, otherwise create it
         Main.debug("Check if index '" + PREFIX + index + "' is present...");
-        DB.getAsyncClient()
-                .indices()
-                .exists(e -> e.index(PREFIX + index))
-                .whenComplete((booleanResponse, ignored) -> {
-                    if (!booleanResponse.value()) {
-                        Main.debug("Index '" + PREFIX + index +"' not found, creating...");
-                        DB.getAsyncClient()
-                                .indices()
-                                .create(c -> c.index(PREFIX + index)
-                                        .mappings(m -> m.properties(ESUtils.getMapping(tagsFormats)))
-                                        .settings(s -> s.numberOfReplicas(numberOfReplicas))
-                                ).whenComplete((createIndexResponse, createIndexthrowable) -> {
-                                    if (createIndexthrowable != null) {
-                                        Main.debug("Index create error: " + createIndexthrowable.getMessage());
-                                        Main.stack(createIndexthrowable.getStackTrace());
-                                        return;
-                                    }
-                                    Main.debug("Index '" + createIndexResponse.index() + "' created !");
-                                    ESUtils.ensureAccountsAgg(PREFIX, DB, tagsFormats);
-                                });
-                    } else {
-                        Main.debug("Index '" + PREFIX + index +"' found !");
-                        ESUtils.ensureAccountsAgg(PREFIX, DB, tagsFormats);
-                    }
-                });
-        return true;
+        try (ESConnection connection = DB.getConnection()) {
+            BooleanResponse booleanResponse = connection.getClient()
+                    .indices()
+                    .exists(e -> e.index(PREFIX + index));
+            if (!booleanResponse.value()) {
+                Main.debug("Index '" + PREFIX + index +"' not found, creating...");
+                try {
+                    CreateIndexResponse createIndexResponse = connection.getClient()
+                            .indices()
+                            .create(c -> c.index(PREFIX + index)
+                                    .mappings(m -> m.properties(ESUtils.getMapping(tagsFormats)))
+                                    .settings(s -> s.numberOfReplicas(numberOfReplicas))
+                            );
+                    Main.debug("Index '" + createIndexResponse.index() + "' created !");
+                    ESUtils.ensureAccountsAgg(PREFIX, connection.getClient(), tagsFormats);
+                } catch (ElasticsearchException | IOException exception) {
+                    throw new StorageExecuteException(exception, "Index create error: " + exception.getMessage());
+                }
+            } else {
+                Main.debug("Index '" + PREFIX + index +"' found !");
+                ESUtils.ensureAccountsAgg(PREFIX, connection.getClient(), tagsFormats);
+            }
+            return true;
+        } catch (ElasticsearchException | IOException exception) {
+            Main.warning("ElasticSearch client error.");
+            Main.stack(exception.getStackTrace());
+        } catch (StorageExecuteException exception) {
+            Main.warning("ElasticSearch storage error.");
+            Main.stack(exception.getStackTrace());
+        }
+        return false;
     }
 
     @Override
@@ -94,12 +102,7 @@ public class ESStorage implements StorageImplementation {
 
     @Override
     public void disconnect() {
-        try {
-            DB.close();
-            Main.debug("ElasticSearch connection closed.");
-        } catch (IOException e) {
-            Main.warning("Error while trying to close RestClient for Elasticsearch connection.");
-        }
+        Main.debug("ElasticSearch automatically close connections after execution, using try-with-resources.");
     }
 
     /*
@@ -108,57 +111,56 @@ public class ESStorage implements StorageImplementation {
 
     @Override
     public int getMoney(@NotNull UUID player) throws StorageExecuteException {
-        try {
-            Main.debug("[ES-Sync] getMoney - search money with uuid '" + player + "'.");
-            SearchRequest request = new SearchRequest.Builder()
-                            .index(PREFIX + "accounts")
-                            .query(q -> q.match(m -> m.query("uuid").field(player.toString())))
-                            .size(1)
-                            .build();
-            return fetchMoney(request);
-        } catch (IOException e) {
-            throw new StorageExecuteException(e, "Error while trying to fetch money for uuid " + player);
-        }
+        Main.debug("[ES-Sync] getMoney - search money with uuid '" + player + "'.");
+        SearchRequest request = new SearchRequest.Builder()
+                        .index(PREFIX + "accounts")
+                        .query(q -> q.match(m -> m.query("uuid").field(player.toString())))
+                        .size(1)
+                        .build();
+        return fetchMoney(request);
     }
 
     @Override
     public int getTagsMoney(@NotNull Map<String, Object> tags) throws StorageExecuteException {
-        try {
-            Main.debug("[ES-Sync] getTagsMoney - search money with tags '" + tags + "'.");
-            BoolQuery.Builder boolQuery = new BoolQuery.Builder();
-            for (Map.Entry<String, Object> entry : tags.entrySet()) {
-                if (entry.getValue() instanceof String value) {
-                    boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
-                } else if (entry.getValue() instanceof Boolean value) {
-                    boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
-                } else if (entry.getValue() instanceof Integer value) {
-                    boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
-                } else if (entry.getValue() instanceof Long value) {
-                    boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
-                } else if (entry.getValue() instanceof Double value) {
-                    boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
-                }
+        Main.debug("[ES-Sync] getTagsMoney - search money with tags '" + tags + "'.");
+        BoolQuery.Builder boolQuery = new BoolQuery.Builder();
+        for (Map.Entry<String, Object> entry : tags.entrySet()) {
+            if (entry.getValue() instanceof String value) {
+                boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
+            } else if (entry.getValue() instanceof Boolean value) {
+                boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
+            } else if (entry.getValue() instanceof Integer value) {
+                boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
+            } else if (entry.getValue() instanceof Long value) {
+                boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
+            } else if (entry.getValue() instanceof Double value) {
+                boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
             }
-            SearchRequest request = new SearchRequest.Builder()
-                            .index(PREFIX + "accounts")
-                            .query(q -> q.bool(boolQuery.build()))
-                            .size(1)
-                            .build();
-            return fetchMoney(request);
-        } catch (IOException e) {
-            throw new StorageExecuteException(e, "Error while trying to fetch money for tags " + tags);
         }
+        SearchRequest request = new SearchRequest.Builder()
+                        .index(PREFIX + "accounts")
+                        .query(q -> q.bool(boolQuery.build()))
+                        .size(1)
+                        .build();
+        return fetchMoney(request);
     }
 
-    private int fetchMoney(@NotNull SearchRequest request) throws IOException {
-        Main.debug("Request: " + request);
-
-        SearchResponse<ObjectNode> response = DB.getClient().search(request, ObjectNode.class);
-        Optional<Hit<ObjectNode>> money = response.hits().hits().stream().findFirst();
-        if (money.isPresent() && money.get().source() != null && money.get().source().has("amount")) {
-            return money.get().source().get("amount").asInt();
+    private int fetchMoney(@NotNull SearchRequest request) throws StorageExecuteException {
+        // TODO: 22/07/2023 Add caching ?
+        try (ESConnection connection = DB.getConnection()) {
+            try {
+                SearchResponse<ObjectNode> response = connection.getClient().search(request, ObjectNode.class);
+                Optional<Hit<ObjectNode>> money = response.hits().hits().stream().findFirst();
+                if (money.isPresent() && money.get().source() != null && money.get().source().has("amount")) {
+                    return money.get().source().get("amount").asInt();
+                }
+                return 0;
+            } catch (ElasticsearchException | IOException exception) {
+                throw new StorageExecuteException(exception, "Error while executing search request");
+            }
+        } catch (IOException exception) {
+            throw new StorageExecuteException(exception, "Elasticsearch client init error.");
         }
-        return 0;
     }
 
     @Override
@@ -194,7 +196,7 @@ public class ESStorage implements StorageImplementation {
         log.put("operation", amount);
         log.put("reason", reason);
         log.put("@timestamp", DateMileKat.getDateEs());
-        moneyChanges.put(transactionId,
+        moneyOperations.put(transactionId,
                 new BulkOperation.Builder().create(
                         new CreateOperation.Builder<>()
                                 .index(PREFIX + "operations")
@@ -207,22 +209,26 @@ public class ESStorage implements StorageImplementation {
 
     private void saveOperation() {
         Bukkit.getScheduler().runTaskTimerAsynchronously(Main.getInstance(), ()-> {
-            Map<UUID, BulkOperation> processing = new HashMap<>(moneyChanges);
-            moneyChanges.clear();
+            Map<UUID, BulkOperation> processing = new HashMap<>(moneyOperations);
+            moneyOperations.clear();
             if (processing.size() > 0) {
-                DB.getAsyncClient().bulk(
-                        new BulkRequest.Builder()
-                                .operations(processing.values().stream().toList())
-                                .build()
-                ).whenComplete((bulkResponse, bulkException) -> {
-                    if (bulkResponse.errors() && bulkException!=null) {
-                        moneyChanges.putAll(processing);
-                        Main.warning("Error while trying to save money changes.");
-                        Main.stack(bulkException.getStackTrace());
-                    } else {
-                        Main.debug("'" + processing.size() + "' money changes saved.");
+                try (ESConnection connection = DB.getConnection()) {
+                    try {
+                        connection.getClient().bulk(
+                                new BulkRequest.Builder()
+                                        .operations(processing.values().stream().toList())
+                                        .build()
+                        );
+                        Main.debug("'" + processing.size() + "' money operation(s) saved.");
+                    } catch (ElasticsearchException | IOException exception) {
+                        moneyOperations.putAll(processing);
+                        Main.warning("Error while trying to save money operation(s).");
+                        Main.stack(exception.getStackTrace());
                     }
-                });
+                } catch (IOException exception) {
+                    Main.warning("ElasticSearch client error.");
+                    Main.stack(exception.getStackTrace());
+                }
             }
         }, 50, 20);
     }
