@@ -1,3 +1,3 @@
-rootProject.name = 'SocieteMileKat'
-include 'api'
+rootProject.name = 'MilekatBanks'
+include 'banks-api'
 

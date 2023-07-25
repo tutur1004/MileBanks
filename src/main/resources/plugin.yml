@@ -1,9 +1,10 @@
-name: SocieteMileKat
+name: MilekatBanks
 author: MileKat
-main: fr.milekat.societe.Main
-version: 1.0.0
+main: fr.milekat.banks.Main
+version: ${pluginVersion}
 api-version: '1.20'
-description: "API/Plugin to create custom shops"
+description: "API/Plugin to add banks to minecraft"
+website: https://github.com/tutur1004/MilekatBanks
 libraries:
   # Utils
   - com.fasterxml.jackson.core:jackson-databind:2.15.2
@@ -14,6 +15,6 @@ libraries:
 commands:
   money:
     description: "Money management command"
-    permission: "money.admin"
+    permission: "milekat.banks.admin"
     permission-message: "You can't perform this command"
     usage: /money
