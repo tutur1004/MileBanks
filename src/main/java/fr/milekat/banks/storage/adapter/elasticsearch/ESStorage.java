@@ -8,8 +8,6 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.bulk.CreateOperation;
 import co.elastic.clients.elasticsearch.core.search.Hit;
-import co.elastic.clients.elasticsearch.indices.CreateIndexResponse;
-import co.elastic.clients.transport.endpoints.BooleanResponse;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import fr.milekat.banks.Main;
 import fr.milekat.banks.storage.StorageImplementation;
@@ -63,19 +61,19 @@ public class ESStorage implements StorageImplementation {
         //  Check if index exist, otherwise create it
         Main.debug("Check if index '" + PREFIX + index + "' is present...");
         try (ESConnection connection = DB.getConnection()) {
-            BooleanResponse booleanResponse = connection.getClient()
+            if (!connection.getClient()
                     .indices()
-                    .exists(e -> e.index(PREFIX + index));
-            if (!booleanResponse.value()) {
+                    .exists(e -> e.index(PREFIX + index))
+                    .value()) {
                 Main.debug("Index '" + PREFIX + index +"' not found, creating...");
                 try {
-                    CreateIndexResponse createIndexResponse = connection.getClient()
+                    connection.getClient()
                             .indices()
                             .create(c -> c.index(PREFIX + index)
                                     .mappings(m -> m.properties(ESUtils.getMapping(tagsFormats)))
                                     .settings(s -> s.numberOfReplicas(numberOfReplicas))
                             );
-                    Main.debug("Index '" + createIndexResponse.index() + "' created !");
+                    Main.debug("Index '" + PREFIX + index + "' created !");
                     ESUtils.ensureAccountsAgg(PREFIX, connection.getClient(), tagsFormats);
                 } catch (ElasticsearchException | IOException exception) {
                     throw new StorageExecuteException(exception, "Index create error: " + exception.getMessage());
