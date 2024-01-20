@@ -10,9 +10,14 @@ import co.elastic.clients.elasticsearch.core.bulk.CreateOperation;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import fr.milekat.banks.Main;
+import fr.milekat.banks.api.events.MoneyPrepareOperation;
+import fr.milekat.banks.api.events.MoneySavedSuccessfully;
+import fr.milekat.banks.storage.CacheManager;
+import fr.milekat.banks.storage.Storage;
 import fr.milekat.banks.storage.StorageImplementation;
 import fr.milekat.banks.storage.exceptions.StorageExecuteException;
 import fr.milekat.banks.storage.exceptions.StorageLoaderException;
+import fr.milekat.banks.utils.BankAccount;
 import fr.milekat.utils.Configs;
 import fr.milekat.utils.DateMileKat;
 import org.bukkit.Bukkit;
@@ -23,21 +28,29 @@ import java.io.IOException;
 import java.util.*;
 
 public class ESStorage implements StorageImplementation {
-    private final String PREFIX;
     private final String numberOfReplicas;
     private final Map<Class<?>, List<String>> tagsFormats = new HashMap<>();
     private final boolean allowEmptyTags;
     private final ESConnector DB;
     private final Map<UUID, BulkOperation> moneyOperations = new HashMap<>();
 
+    private final String BANK_INDEX_TRANSACTIONS;
+    private final String BANK_INDEX_REGISTRY;
+
     /*
         Main DB
     */
     public ESStorage(@NotNull Configs config) throws StorageLoaderException {
-        this.PREFIX = config.getString("storage.elasticsearch.prefix", "bank-");
+        String prefix = config.getString("storage.elasticsearch.prefix", "bank-");
+        if (!prefix.matches("[a-z0-9][a-z0-9-]{0,19}")) {
+            throw new StorageLoaderException("Elasticsearch prefix wrong, please only lower cases (a-z), " +
+                    "digits (0-9) and dashed '-', also you can't start with a '-'.");
+        }
+        this.BANK_INDEX_TRANSACTIONS = prefix + "transactions";
+        this.BANK_INDEX_REGISTRY = prefix + "account-registry";
         this.numberOfReplicas = config.getString("storage.elasticsearch.replicas", "0");
-        if (config.getBoolean("default_tags", true)) {
-            tagsFormats.put(String.class, Arrays.asList("name", "uuid"));
+        if (config.getBoolean("enable_builtin_tags", true)) {
+            tagsFormats.put(String.class, Arrays.asList("playerName", "playerUuid"));
         } else {
             tagsFormats.put(String.class, config.getStringList("custom_tags.string"));
             tagsFormats.put(Integer.class, config.getStringList("custom_tags.integer"));
@@ -57,31 +70,29 @@ public class ESStorage implements StorageImplementation {
 
     @Override
     public boolean checkStorages() {
-        String index = "operations";
         //  Check if index exist, otherwise create it
-        Main.debug("Check if index '" + PREFIX + index + "' is present...");
+        Main.debug("Check if index '" + BANK_INDEX_TRANSACTIONS + "' is present...");
         try (ESConnection connection = DB.getConnection()) {
             if (!connection.getClient()
                     .indices()
-                    .exists(e -> e.index(PREFIX + index))
+                    .exists(e -> e.index(BANK_INDEX_TRANSACTIONS))
                     .value()) {
-                Main.debug("Index '" + PREFIX + index +"' not found, creating...");
+                Main.debug("Index '" + BANK_INDEX_TRANSACTIONS +"' not found, creating...");
                 try {
                     connection.getClient()
                             .indices()
-                            .create(c -> c.index(PREFIX + index)
+                            .create(c -> c.index(BANK_INDEX_TRANSACTIONS)
                                     .mappings(m -> m.properties(ESUtils.getMapping(tagsFormats)))
                                     .settings(s -> s.numberOfReplicas(numberOfReplicas))
                             );
-                    Main.debug("Index '" + PREFIX + index + "' created !");
-                    ESUtils.ensureAccountsAgg(PREFIX, connection.getClient(), tagsFormats);
+                    Main.debug("Index '" + BANK_INDEX_TRANSACTIONS + "' created !");
                 } catch (ElasticsearchException | IOException exception) {
                     throw new StorageExecuteException(exception, "Index create error: " + exception.getMessage());
                 }
-            } else {
-                Main.debug("Index '" + PREFIX + index +"' found !");
-                ESUtils.ensureAccountsAgg(PREFIX, connection.getClient(), tagsFormats);
             }
+            Main.debug("Index '" + BANK_INDEX_TRANSACTIONS +"' found !");
+            ESUtils.ensureAccountsAgg(connection.getClient(), BANK_INDEX_TRANSACTIONS,
+                    BANK_INDEX_REGISTRY, tagsFormats);
             return true;
         } catch (ElasticsearchException | IOException exception) {
             Main.warning("ElasticSearch client error.");
@@ -111,7 +122,7 @@ public class ESStorage implements StorageImplementation {
     public int getMoney(@NotNull UUID player) throws StorageExecuteException {
         Main.debug("[ES-Sync] getMoney - search money with uuid '" + player + "'.");
         SearchRequest request = new SearchRequest.Builder()
-                        .index(PREFIX + "accounts")
+                        .index(BANK_INDEX_REGISTRY)
                         .query(q -> q.match(m -> m.query("uuid").field(player.toString())))
                         .size(1)
                         .build();
@@ -136,11 +147,13 @@ public class ESStorage implements StorageImplementation {
             }
         }
         SearchRequest request = new SearchRequest.Builder()
-                        .index(PREFIX + "accounts")
+                        .index(BANK_INDEX_REGISTRY)
                         .query(q -> q.bool(boolQuery.build()))
                         .size(1)
                         .build();
-        return fetchMoney(request);
+        int balance = fetchMoney(request);
+        CacheManager.addCacheAccount(Storage.BANK_ACCOUNTS_CACHE, new BankAccount(tags, balance));
+        return balance;
     }
 
     private int fetchMoney(@NotNull SearchRequest request) throws StorageExecuteException {
@@ -179,7 +192,7 @@ public class ESStorage implements StorageImplementation {
 
     private @NotNull UUID addOperation(@NotNull UUID player, @NotNull Map<String, Object> tags, int amount,
                                @Nullable String reason) throws StorageExecuteException {
-        if (!allowEmptyTags && tags.size() == 0) {
+        if (!allowEmptyTags && tags.isEmpty()) {
             throw new StorageExecuteException(new IllegalArgumentException("Empty tags not allowed."),
                     "Empty tags can't be saved in storage, because 'allow_empty_tags' config is set to false. " +
                             "Ensure you correctly define tags for UUID '" + player + "'.");
@@ -194,14 +207,20 @@ public class ESStorage implements StorageImplementation {
         log.put("operation", amount);
         log.put("reason", reason);
         log.put("@timestamp", DateMileKat.getDateEs());
+        MoneyPrepareOperation event = new MoneyPrepareOperation(transactionId, player, tags, amount, reason);
+        if (event.isCancelled()) {
+            throw new StorageExecuteException(new Throwable(), "Money operation cancelled by plugin.");
+        }
         moneyOperations.put(transactionId,
                 new BulkOperation.Builder().create(
                         new CreateOperation.Builder<>()
-                                .index(PREFIX + "operations")
+                                .index(BANK_INDEX_TRANSACTIONS)
                                 .document(log)
                                 .build()
                 ).build()
         );
+        Main.getInstance().getServer().getPluginManager().callEvent(
+                new MoneySavedSuccessfully(transactionId, player, tags, amount, reason));
         return transactionId;
     }
 
@@ -209,7 +228,7 @@ public class ESStorage implements StorageImplementation {
         Bukkit.getScheduler().runTaskTimerAsynchronously(Main.getInstance(), ()-> {
             Map<UUID, BulkOperation> processing = new HashMap<>(moneyOperations);
             moneyOperations.clear();
-            if (processing.size() > 0) {
+            if (!processing.isEmpty()) {
                 try (ESConnection connection = DB.getConnection()) {
                     try {
                         connection.getClient().bulk(

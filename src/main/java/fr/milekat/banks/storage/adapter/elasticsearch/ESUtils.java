@@ -5,7 +5,6 @@ import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
 import co.elastic.clients.elasticsearch._types.mapping.PropertyBuilders;
-import co.elastic.clients.elasticsearch.transform.GetTransformResponse;
 import co.elastic.clients.elasticsearch.transform.GetTransformStatsResponse;
 import co.elastic.clients.elasticsearch.transform.PivotGroupBy;
 import fr.milekat.banks.Main;
@@ -35,7 +34,7 @@ public class ESUtils {
                         new Property(PropertyBuilders.integer().build())));
             } else if (type.equals(Float.class)) {
                 fields.forEach(field -> tags.put(field,
-                        new Property(PropertyBuilders.long_().build())));
+                        new Property(PropertyBuilders.keyword().build())));
             } else if (type.equals(Double.class)) {
                 fields.forEach(field -> tags.put(field,
                         new Property(PropertyBuilders.double_().build())));
@@ -44,41 +43,39 @@ public class ESUtils {
                         new Property(PropertyBuilders.boolean_().build())));
             }
         });
-        if (tags.size()>0) {
+        if (!tags.isEmpty()) {
             mapping.put("tags", new Property(PropertyBuilders.object().properties(tags).build()));
         }
         return mapping;
     }
 
-    public static void ensureAccountsAgg(@NotNull String PREFIX, @NotNull ElasticsearchClient client,
+    public static void ensureAccountsAgg(@NotNull ElasticsearchClient client,
+                                         @NotNull String indexSource,
+                                         @NotNull String indexAgg,
                                          @NotNull Map<Class<?>, List<String>> tagsFormats)
             throws StorageExecuteException {
         try {
-            Main.debug("Check if transform 'accounts' is present...");
-            GetTransformResponse getTransformResponse = client
-                    .transform()
-                    .getTransform(t -> t.transformId("accounts"));
-            if (getTransformResponse.count() == 0) {
-                Main.debug("Transform 'accounts' is not present !");
-                createAccountAgg(PREFIX, client, tagsFormats);
-            } else {
-                Main.debug("Transform 'accounts' is present !");
-                startAccountAgg(client);
-            }
+            Main.debug("Check if transform '" + indexAgg + "' is present...");
+            client.transform().getTransform(t -> t.transformId(indexAgg));
+            Main.debug("Transform '" + indexAgg + "' is present !");
         } catch (ElasticsearchException | IOException exception) {
-            throw new StorageExecuteException(exception, "Error while trying to get ES transform 'accounts'");
+            Main.debug("Transform '" + indexAgg + "' is not present !");
+            createAccountAgg(client, indexSource, indexAgg, tagsFormats);
+        } finally {
+            startAccountAgg(client, indexAgg);
         }
     }
 
-    private static void createAccountAgg(@NotNull String PREFIX, @NotNull ElasticsearchClient client,
-                                  @NotNull Map<Class<?>, List<String>> tagsFormats) throws StorageExecuteException {
+    private static void createAccountAgg(@NotNull ElasticsearchClient client,
+                                          @NotNull String indexSource,
+                                          @NotNull String indexAgg,
+                                          @NotNull Map<Class<?>, List<String>> tagsFormats)
+            throws StorageExecuteException {
         try {
-            Main.debug("Transform 'accounts' creating...");
-            // TODO: 19/07/2023 Ensure index 'PREFIX + "accounts"' is not present ?
-            //  To prevent error when create transform
+            Main.debug("Transform '" + indexAgg + "' creating...");
             client.transform()
                     .putTransform(t -> t
-                            .source(s -> s.index(PREFIX + "operations"))
+                            .source(s -> s.index(indexSource))
                             .pivot(p -> p
                                     .groupBy(ESUtils.getMappingPivotGroups(tagsFormats))
                                     .aggregations("amount", new Aggregation.Builder()
@@ -86,34 +83,34 @@ public class ESUtils {
                                             .build()
                                     )
                             )
-                            .transformId("accounts")
-                            .description("Accounts aggregation based on " + PREFIX + "operations")
-                            .dest(d -> d.index(PREFIX + "accounts"))
-                            .sync(s -> s.time(st -> st.field("@timestamp").delay(d -> d.time("0s"))))
-                            .frequency(f -> f.time("1s"))
+                            .transformId(indexAgg)
+                            .description("Accounts aggregation based on '" + indexSource + "'")
+                            .dest(d -> d.index(indexAgg))
+                            .sync(s -> s.time(st -> st.field("@timestamp").delay(d -> d.time("3s"))))
+                            .frequency(f -> f.time("2s"))
                     );
-            Main.debug("Transform 'accounts' created !");
-            startAccountAgg(client);
+            Main.debug("Transform '" + indexAgg + "' created !");
         } catch (ElasticsearchException | IOException exception) {
             throw new StorageExecuteException(exception, "Transform create error: " + exception.getMessage());
         }
     }
 
-    private static void startAccountAgg(@NotNull ElasticsearchClient client) throws StorageExecuteException {
+    private static void startAccountAgg(@NotNull ElasticsearchClient client, @NotNull String indexAgg)
+            throws StorageExecuteException {
         try {
-            Main.debug("Check if transform 'accounts' is started...");
+            Main.debug("Check if transform '" + indexAgg + "' is started...");
             GetTransformStatsResponse getStatsResponse = client.transform()
-                    .getTransformStats(t -> t.transformId("accounts"));
+                    .getTransformStats(t -> t.transformId(indexAgg));
             if (!getStatsResponse.transforms().get(0).state().equalsIgnoreCase("started")) {
                 try {
-                    Main.debug("Transform 'accounts' is not started, starting...");
-                    client.transform().startTransform(t -> t.transformId("accounts"));
-                    Main.debug("Transform 'accounts' started !");
+                    Main.debug("Transform '" + indexAgg + "' is not started, starting...");
+                    client.transform().startTransform(t -> t.transformId(indexAgg));
+                    Main.debug("Transform '" + indexAgg + "' started !");
                 } catch (ElasticsearchException |IOException exception) {
                     throw new StorageExecuteException(exception, "Transform start error: " + exception.getMessage());
                 }
             } else {
-                Main.debug("Transform 'accounts' is started !");
+                Main.debug("Transform '" + indexAgg + "' is started !");
             }
         } catch (ElasticsearchException |IOException exception) {
             throw new StorageExecuteException(exception, "Transform get stats error: " + exception.getMessage());

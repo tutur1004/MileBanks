@@ -1,20 +1,21 @@
-name: MilekatBanks
+name: MileBanks
 author: MileKat
 main: fr.milekat.banks.Main
 version: ${pluginVersion}
 api-version: '1.20'
 description: "API/Plugin to add banks to minecraft"
-website: https://github.com/tutur1004/MilekatBanks
+website: https://github.com/tutur1004/MileBanks
 libraries:
   # Utils
   - com.fasterxml.jackson.core:jackson-databind:2.15.2
   - com.fasterxml.jackson.core:jackson-annotations:2.15.2
   - com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.2
   # Storage
-  - co.elastic.clients:elasticsearch-java:8.7.1
+  - co.elastic.clients:elasticsearch-java:8.12.0
 commands:
   money:
     description: "Money management command"
-    permission: "milekat.banks.admin"
+    permission: "mile-banks.admin"
     permission-message: "You can't perform this command"
     usage: /money
+    aliases: [bank, banks, money-admin]

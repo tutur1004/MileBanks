@@ -1,23 +1,23 @@
 package fr.milekat.banks;
 
-import fr.milekat.banks.api.MilekatBanksAPI;
+import fr.milekat.banks.api.MileBanksAPI;
 import fr.milekat.banks.commands.MoneyCmd;
 import fr.milekat.banks.listeners.DefaultTags;
 import fr.milekat.banks.storage.Storage;
 import fr.milekat.banks.storage.StorageImplementation;
 import fr.milekat.banks.storage.exceptions.StorageLoaderException;
 import fr.milekat.utils.Configs;
-import net.md_5.bungee.api.chat.BaseComponent;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 public class Main extends JavaPlugin {
@@ -25,40 +25,43 @@ public class Main extends JavaPlugin {
     private static Configs config;
     public static Boolean DEBUG = false;
     private static Storage LOADED_STORAGE;
+    public static final Map<UUID, Map<String, Object>> playerTags = new HashMap<>();
 
-        @Override
+    @Override
     public void onEnable() {
         plugin = this;
         //  Load configs
-        File configFile;
         try {
-            configFile = File.createTempFile(UUID.randomUUID().toString(), UUID.randomUUID().toString());
-            this.getConfig().save(configFile);
-        } catch (IOException exception) {
-            this.getLogger().warning("Error while trying to load config");
-            exception.printStackTrace();
+            reloadConfigs();
+        } catch (NullPointerException exception) {
+            warning("Error: " + exception.getLocalizedMessage());
+            Main.stack(exception.getStackTrace());
+            warning("Configs load failed, disabling plugin..");
             this.onDisable();
             return;
         }
-        config = new Configs(configFile);
-        DEBUG = config.getBoolean("debug");
-        debug("Debug enable");
         //  Load storage
         try {
-            LOADED_STORAGE = new Storage(config);
-            debug("Storage enable, API is now available");
+            reloadStorage();
         } catch (StorageLoaderException exception) {
-            warning("Storage load failed, disabling plugin..");
             warning("Error: " + exception.getLocalizedMessage());
-            if (DEBUG) exception.printStackTrace();
+            Main.stack(exception.getStackTrace());
+            warning("Storage load failed, disabling plugin..");
             this.onDisable();
+            return;
         }
         //  Load API
-        MilekatBanksAPI.LOADED_API = new API();
-        MilekatBanksAPI.API_READY = true;
-        //  Load plugin workers
-        plugin.getServer().getPluginManager().registerEvents(new DefaultTags(), this);
-        plugin.getCommand("money").setExecutor(new MoneyCmd());
+        MileBanksAPI.LOADED_API = new API();
+        MileBanksAPI.API_READY = true;
+        //  Load plugin listeners
+        if (config.getBoolean("enable_builtin_tags", true)) {
+            plugin.getServer().getPluginManager().registerEvents(new DefaultTags(), this);
+        }
+        //  Load plugin commands
+        if (config.getBoolean("enable_builtin_commands", true)) {
+            PluginCommand moneyCmd = plugin.getCommand("money");
+            if (moneyCmd != null) moneyCmd.setExecutor(new MoneyCmd());
+        }
     }
 
     @Override
@@ -120,16 +123,6 @@ public class Main extends JavaPlugin {
     }
 
     /**
-     * Send a formatted BaseComponent message to sender
-     */
-    public static void message(@NotNull Player player, @NotNull BaseComponent message) {
-        BaseComponent prefixedMessage = new TextComponent(Main.getConfigs().getMessage("messages.prefix") +
-                ChatColor.RESET);
-        prefixedMessage.addExtra(message.duplicate());
-        player.spigot().sendMessage(prefixedMessage);
-    }
-
-    /**
      * Get Storage
      * @return Storage implementation
      */
@@ -143,6 +136,31 @@ public class Main extends JavaPlugin {
      */
     public static Configs getConfigs() {
         return config;
+    }
+
+    /**
+     * Reload configs
+     */
+    public static void reloadConfigs() throws NullPointerException {
+        // If config file doesn't exist, create it
+        if (!plugin.getDataFolder().exists()) if (plugin.getDataFolder().mkdir()) info("Plugin folder created");
+        File configFile = new File(plugin.getDataFolder(), "config.yml");
+        if (!configFile.exists()) plugin.saveDefaultConfig();
+        config = new Configs(configFile);
+        DEBUG = config.getBoolean("debug", false);
+        debug("Debug enable");
+        info("Config loaded");
+    }
+
+    /**
+     * Reload storage
+     */
+    public static void reloadStorage() throws StorageLoaderException {
+        try {
+            getStorage().disconnect();
+        } catch (Exception ignored) {}
+        LOADED_STORAGE = new Storage(config);
+        debug("Storage enable, API is now available");
     }
 
     /**

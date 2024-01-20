@@ -12,7 +12,7 @@ public class StorageExecuteException extends Exception {
         super(exception);
         this.message = message;
         if (Main.DEBUG) {
-            exception.printStackTrace();
+            Main.stack(exception.getStackTrace());
         }
     }
 

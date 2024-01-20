@@ -1,3 +1,3 @@
-rootProject.name = 'MilekatBanks'
+rootProject.name = 'MileBanks'
 include 'banks-api'
 

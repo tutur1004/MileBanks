@@ -1,6 +1,6 @@
 package fr.milekat.banks.api.exceptions;
 
-import fr.milekat.banks.api.MilekatBanksAPI;
+import fr.milekat.banks.api.MileBanksAPI;
 
 /**
  * Exception thrown when there is an issue during a storage execution.
@@ -21,7 +21,7 @@ public class StorageException extends Exception {
         super(exception);
         this.message = message;
         try {
-            if (MilekatBanksAPI.getAPI().isDebug()) {
+            if (MileBanksAPI.getAPI().isDebug()) {
                 exception.printStackTrace();
             }
         } catch (ApiUnavailable ignore) {

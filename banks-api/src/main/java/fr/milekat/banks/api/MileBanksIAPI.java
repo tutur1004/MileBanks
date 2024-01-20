@@ -8,10 +8,10 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * The SocieteMileKatIAPI interface provides access to the Societe MileKat API functionalities.
+ * The MileBanksIAPI interface provides access to the Banks API functionalities.
  */
 @SuppressWarnings("unused")
-public interface MilekatBanksIAPI {
+public interface MileBanksIAPI {
     /**
      * Checks if the API is running in debug mode.
      *
@@ -25,7 +25,9 @@ public interface MilekatBanksIAPI {
      * @param player The {@link UUID} of the player.
      * @return The amount of money associated with the given player {@link UUID}.
      * @throws StorageException if there is an error accessing the storage.
+     * @deprecated Use {@link #getMoneyByTag(String, Object)} or {@link #getMoneyByTags(Map)} instead.
      */
+    @Deprecated
     int getMoney(@NotNull UUID player) throws StorageException;
 
     /**

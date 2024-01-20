@@ -5,9 +5,9 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The SocieteMileKatAPI class provides access to the societe milekat API.
+ * The MileBanksAPI class provides access to the banks API.
  */
-public class MilekatBanksAPI {
+public class MileBanksAPI {
     /**
      * Indicates whether the API is ready for use.
      */
@@ -15,17 +15,17 @@ public class MilekatBanksAPI {
     /**
      * The loaded API instance.
      */
-    public static MilekatBanksIAPI LOADED_API;
+    public static MileBanksIAPI LOADED_API;
 
     /**
-     * Retrieves the instance of the custom shops API.
+     * Retrieves the instance of the banks API.
      *
-     * @return The custom shops API instance.
+     * @return The banks API instance.
      * @throws ApiUnavailable if the API is not ready.
      */
     @Contract(value = " -> new", pure = true)
-    public static @NotNull MilekatBanksIAPI getAPI() throws ApiUnavailable {
-        if (!MilekatBanksAPI.API_READY) {
+    public static @NotNull MileBanksIAPI getAPI() throws ApiUnavailable {
+        if (!MileBanksAPI.API_READY) {
             throw new ApiUnavailable();
         }
         return LOADED_API;
