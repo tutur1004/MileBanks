@@ -112,17 +112,6 @@ public class ESStorage implements StorageImplementation {
      */
 
     @Override
-    public int getMoney(@NotNull UUID player) throws StorageExecuteException {
-        Main.debug("[ES-Sync] getMoney - search money with uuid '" + player + "'.");
-        SearchRequest request = new SearchRequest.Builder()
-                        .index(BANK_INDEX_ACCOUNTS)
-                        .query(q -> q.match(m -> m.query("uuid").field(player.toString())))
-                        .size(1)
-                        .build();
-        return fetchMoney(request);
-    }
-
-    @Override
     public int getMoneyFromTag(@NotNull String tagName, @NotNull Object tagValue) throws StorageExecuteException {
         Main.debug("[ES-Sync] getMoneyFromTag - search money with tag '" + tagName + "=" + tagValue + "'.");
         BoolQuery.Builder boolQuery = ESUtils.getBuilder(tagName, tagValue);
@@ -137,7 +126,6 @@ public class ESStorage implements StorageImplementation {
     }
 
     private int fetchMoney(@NotNull SearchRequest request) throws StorageExecuteException {
-        // TODO: 22/07/2023 Add caching ?
         try (ESConnection connection = DB.getConnection()) {
             try {
                 SearchResponse<ObjectNode> response = connection.getClient().search(request, ObjectNode.class);

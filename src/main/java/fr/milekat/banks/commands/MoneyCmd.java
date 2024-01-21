@@ -27,7 +27,7 @@ public class MoneyCmd implements TabExecutor {
                 if (!moneyAction.equals(MoneyAction.TAGS)) {
                     Player player = Bukkit.getPlayerExact(args[1]);
                     if (player == null) {
-                        Main.message(sender, "&cPlayer not found.");
+                        Main.message(sender, "&cPlayer '" + args[1] + "' not found.");
                         return true;
                     }
                     if (!Main.PLAYER_TAGS.containsKey(player.getUniqueId())) {
@@ -39,58 +39,65 @@ public class MoneyCmd implements TabExecutor {
                     if (Main.TAGS.containsKey(args[1])) {
                         tags.put(args[1], args[2]);
                     } else {
-                        Main.message(sender, "&cThis tag doesn't exist.");
+                        Main.message(sender, "&cTag '" + args[1] + "' doesn't exist.");
                         return true;
                     }
                     moneyAction = MoneyAction.valueOf(args[3].toUpperCase(Locale.ROOT));
-                } else sendHelp(sender, label);
-                if (moneyAction.equals(MoneyAction.GET)) {
-                    Main.message(sender, "Player tags:");
-                    tags.forEach((key, value) -> {
-                        sender.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                                "&r - &e" + key + "&f: &b" + value));
-                        try {
-                            sender.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                                    "&r  >&eBalance: &a" +
-                                            Main.getStorage().getCacheBalance(key, value)));
-                        } catch (StorageExecuteException e) {
-                            Main.message(sender, "&cMoney not found for this tag.");
-                        }
-                    });
-                } else if (args.length >= 3) {
-                    int amount = 0;
-                    String reason = "Command";
-                    if (args.length >= 4 && !args[0].equalsIgnoreCase("tags")) {
+                } else return sendHelp(sender, label);
+                int amount = 0;
+                String reason = "Command";
+                if (args.length >= 3 && !args[0].equalsIgnoreCase("tags")) {
+                    amount = Integer.parseInt(args[2]);
+                    if (args.length >= 4) {
                         reason = String.join(" ", Arrays.copyOfRange(args, 3, args.length));
-                        amount = Integer.parseInt(args[2]);
-                    } else if (args.length >= 5) {
+                    }
+                } else if (args.length >= 4) {
+                    amount = Integer.parseInt(args[4]);
+                    if (args.length >= 6) {
                         reason = String.join(" ", Arrays.copyOfRange(args, 5, args.length));
-                        amount = Integer.parseInt(args[4]);
                     }
-                    switch (moneyAction) {
-                        case ADD -> {
-                            Main.getStorage().addMoneyToTags(tags, amount, reason);
-                            Main.message(sender, "Added " + amount + " to balance.");
-                        }
-                        case REMOVE -> {
-                            Main.getStorage().addMoneyToTags(tags, amount, reason);
-                            Main.message(sender, "Removed " + amount + " from balance.");
-                        }
-                        case SET -> {
-                            if (tags.size() > 1) {
-                                Main.message(sender, "&cYou can't set balance to multiple tags.");
-                                return true;
+                }
+                switch (moneyAction) {
+                    case GET -> {
+                        Main.message(sender, "Account(s):");
+                        tags.forEach((key, value) -> {
+                            sender.sendMessage(
+                                    ChatColor.translateAlternateColorCodes('&',
+                                            "&r - &e" + key + "&f: &b" + value));
+                            try {
+                                sender.sendMessage(ChatColor.translateAlternateColorCodes('&',
+                                        "&r  >&eBalance: &a" +
+                                                Main.getStorage().getCacheBalance(key, value)));
+                            } catch (StorageExecuteException e) {
+                                Main.message(sender, "&cMoney not found for this tag.");
                             }
-                            String tagName = tags.keySet().iterator().next();
-                            Object tagValue = tags.values().iterator().next();
-                            Main.getStorage().setMoneyToTag(tagName, tagValue, amount, reason);
-                            Main.message(sender, "Set balance to " + amount + ".");
-                        }
+                        });
                     }
-                } else sendHelp(sender, label);
+                    case ADD -> {
+                        Main.getStorage().addMoneyToTags(tags, amount, reason);
+                        Main.message(sender, "Added " + amount + " to balance.");
+                    }
+                    case REMOVE -> {
+                        Main.getStorage().addMoneyToTags(tags, amount, reason);
+                        Main.message(sender, "Removed " + amount + " from balance.");
+                    }
+                    case SET -> {
+                        if (tags.size() > 1) {
+                            Main.message(sender, "&cYou can't set balance to multiple tags.");
+                            return true;
+                        }
+                        String tagName = tags.keySet().iterator().next();
+                        Object tagValue = tags.values().iterator().next();
+                        Main.getStorage().setMoneyToTag(tagName, tagValue, amount, reason);
+                        Main.message(sender, "Set balance to " + amount + ".");
+                    }
+                }
+            } catch (IllegalArgumentException exception) {
+                Main.message(sender, "&cInvalid action, see /" + label + " help for more info.");
+                return true;
             } catch (Exception exception) {
                 Main.message(sender, "&cError: " + exception.getLocalizedMessage());
-                Main.message(sender, "&cInvalid command usage, see /" + label + " help");
+                Main.message(sender, "&cInvalid command usage, see /" + label + " help for more info.");
                 Main.stack(exception.getStackTrace());
             }
         } else if (args.length==1) {
@@ -110,35 +117,44 @@ public class MoneyCmd implements TabExecutor {
         return true;
     }
 
-    private void sendHelp(@NotNull CommandSender sender, String lbl){
+    private boolean sendHelp(@NotNull CommandSender sender, String lbl){
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
-                "messages.command.money.help.",
-                "add <player> <amount> [reason]&r: &eAdd money to a player's balance"
+                "messages.command.money.help.add",
+                "add <player> <amount> [reason]&r: &eAdd money to a player's balance(s)"
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
-                "messages.command.money.help.",
-                "remove <player> <amount> [reason]&r: &eRemove money from player's balance"
+                "messages.command.money.help.remove",
+                "remove <player> <amount> [reason]&r: &eRemove money from player's balance(s)"
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
-                "messages.command.money.help.",
-                "set <player> <amount> [reason]&r: &eSet player's money balance"
+                "messages.command.money.help.get",
+                "get <player>&r: &eGet all balances of a player and their values"
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
-                "messages.command.money.help.",
-                "get <player>&r: &eGet balance of a player"
+                "messages.command.money.help.tags.add",
+                "tags add <tag-name> <tag-value> add <amount> [reason]&r: &eAdd money to a tag balance"
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
-                "messages.command.money.help.",
-                "tags <player>&r: &eGet list of tags of a player"
+                "messages.command.money.help.tags.remove",
+                "tags remove <tag-name> <tag-value> remove <amount> [reason]&r: &eRemove money from a tag balance"
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
-                "messages.command.money.help.",
+                "messages.command.money.help.tags.set",
+                "tags set <tag-name> <tag-value> set <amount> [reason]&r: &eSet money to a tag balance"
+        ));
+        Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
+                "messages.command.money.help.tags.get",
+                "tags get <tag-name> <tag-value>&r: &eGet a tag balance"
+        ));
+        Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
+                "messages.command.money.help.reload",
                 "reload&r: &eReload the plugin"
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
-                "messages.command.money.help.",
+                "messages.command.money.help.help",
                 "help&r: &eShow this help message"
         ));
+        return true;
     }
 
     @Nullable
@@ -157,7 +173,7 @@ public class MoneyCmd implements TabExecutor {
             }
         } else if (args.length == 4) {
             if (args[0].equalsIgnoreCase("tags")) {
-                return McTools.getTabArgs(args[3], Arrays.asList("add", "remove", "set"));
+                return McTools.getTabArgs(args[3], Arrays.asList("add", "remove", "set", "get"));
             }
         }
         return List.of("");

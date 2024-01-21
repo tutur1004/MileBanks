@@ -1,15 +1,16 @@
 # Debug mode
 debug: false
-# If false, you will have to set players tags alone
-enable_builtin_tags: true
+
 # Enable or disable the builtin admin money command (/money, /bank, /banks, /money-admin)
 enable_builtin_commands: true
+
 # Storage system
 storage:
   #   Available storage type (Please fill related connection section)
   #   (NoSQL)   |=>  ElasticSearch
   type: ElasticSearch
   elasticsearch:
+    # Index prefix (Should be in lowercase and without spaces, only letters and dashes are allowed)
     prefix: "banks-"
     hostname: "elasticsearch"
     port: "9200"
@@ -17,6 +18,13 @@ storage:
     password: "pass"
     # Number of indices shard replications, do not modify it if you don't know what you are doing !
     replicas: 0
+  cache:
+    # Enable or disable cache accounts (Recommended)
+    enabled: true
+    # Cache time in seconds (Recommended between 2 and 10, 0 = disabled)
+    time: 5
+    # Cache size (Max number of cached accounts, Recommended between 200 and 5000, 0 = unlimited)
+    size: 1000
 
 # Messages
 messages:
@@ -24,24 +32,31 @@ messages:
   command:
     money:
       help:
-        add: "add <player> <amount> [reason]&r: &eAdd money to a player's balance"
-        remove: "remove <player> <amount> [reason]&r: &eRemove money from player's balance"
-        set: "set <player> <amount> [reason]&r: &eSet player's money balance"
-        get: "get <player>&r: &eGet balance of a player"
-        tags: "tags <player>&r: &eGet list of tags of a player"
+        add: "add <player> <amount> [reason]&r: &eAdd money to a player's balance(s)"
+        remove: "remove <player> <amount> [reason]&r: &eRemove money from player's balance(s)"
+        get: "get <player>&r: &eGet all balances of a player and their values"
+        tags:
+          add: "tags add <tag-name> <tag-value> add <amount> [reason]&r: &eAdd money to a tag balance"
+          remove: "tags remove <tag-name> <tag-value> remove <amount> [reason]&r: &eRemove money from a tag balance"
+          set: "tags set <tag-name> <tag-value> set <amount> [reason]&r: &eSet a tag balance"
+          get: "tags get <tag-name> <tag-value>&r: &eGet a tag balance"
         reload: "reload&r: &eReload the plugin"
         help: "help&r: &eShow this help message"
 
-# Advanced users ONLY
-# Need 'enable_builtin_tags' to false
-# Tags must be lowercase and without spaces, only letters and dashes are allowed
-# Tags names length must be between 3 and 16 characters
-custom_tags:
-  # List of text tags (Will be stored as String keyword) [Max value 256 chars]
-  string: ["player-name", "player-uuid"]
-  # Specific number value [Max number length 20 chars]
-  integer: []
-  long: []
-  double: []
-  # True/False value
-  boolean: []
+# Tags feature (Advanced users)
+tags:
+  # If false, you will have to set players tags alone
+  enable_builtin_tags: true
+  ##############################
+  # Advanced users ONLY (This section require a plugin who set tags for players)
+  # Need 'enable_builtin_tags' to false
+  # Tags must be lowercase and without spaces, only letters and dashes are allowed
+  # Tags names length must be between 3 and 16 characters
+  ##############################
+  custom:
+    string: [ "player-name", "player-uuid" ]
+    integer: [ ]
+    long: [ ]
+    double: [ ]
+    boolean: [ ]
+  ##############################

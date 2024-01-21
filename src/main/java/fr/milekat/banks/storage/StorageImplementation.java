@@ -29,8 +29,6 @@ public interface StorageImplementation extends CacheManager {
             ES Queries execution
      */
 
-    int getMoney(@NotNull UUID player) throws StorageExecuteException;
-
     int getMoneyFromTag(@NotNull String tagName, @NotNull Object tagValue) throws StorageExecuteException;
 
     UUID addMoneyToTags(@NotNull Map<String, Object> tags, int amount, String reason) throws StorageExecuteException;

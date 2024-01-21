@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 public class Main extends JavaPlugin {
     private static JavaPlugin plugin;
@@ -55,7 +56,7 @@ public class Main extends JavaPlugin {
         MileBanksAPI.LOADED_API = new API();
         MileBanksAPI.API_READY = true;
         //  Load plugin listeners
-        if (config.getBoolean("enable_builtin_tags", true)) {
+        if (config.getBoolean("tags.enable_builtin_tags", true)) {
             plugin.getServer().getPluginManager().registerEvents(new DefaultTags(), this);
         }
         //  Load plugin commands
@@ -149,15 +150,15 @@ public class Main extends JavaPlugin {
         if (!configFile.exists()) plugin.saveDefaultConfig();
         config = new Configs(configFile);
         TAGS.clear();
-        if (config.getBoolean("enable_builtin_tags", true)) {
+        if (config.getBoolean("tags.enable_builtin_tags", true)) {
             TAGS.put("player-uuid", String.class);
             TAGS.put("player-name", String.class);
         } else {
-            config.getStringList("custom_tags.string").forEach(tag -> TAGS.put(tag, String.class));
-            config.getStringList("custom_tags.integer").forEach(tag -> TAGS.put(tag, Integer.class));
-            config.getStringList("custom_tags.long").forEach(tag -> TAGS.put(tag, Float.class));
-            config.getStringList("custom_tags.double").forEach(tag -> TAGS.put(tag, Double.class));
-            config.getStringList("custom_tags.boolean").forEach(tag -> TAGS.put(tag, Boolean.class));
+            config.getStringList("tags.custom.string").forEach(tag -> TAGS.put(tag, String.class));
+            config.getStringList("tags.custom.integer").forEach(tag -> TAGS.put(tag, Integer.class));
+            config.getStringList("tags.custom.long").forEach(tag -> TAGS.put(tag, Float.class));
+            config.getStringList("tags.custom.double").forEach(tag -> TAGS.put(tag, Double.class));
+            config.getStringList("tags.custom.boolean").forEach(tag -> TAGS.put(tag, Boolean.class));
         }
         DEBUG = config.getBoolean("debug", false);
         debug("Debug enable");
@@ -172,6 +173,17 @@ public class Main extends JavaPlugin {
             getStorage().disconnect();
         } catch (Exception ignored) {}
         LOADED_STORAGE = new Storage(config);
+        if (config.getBoolean("storage.cache.enable", true)) {
+        Storage.BANK_ACCOUNT_DELAY = TimeUnit.MILLISECONDS.convert(
+                config.getLong("storage.cache.time", 5L), TimeUnit.SECONDS);
+            debug("Account cache delay set to " + Storage.BANK_ACCOUNT_DELAY + "ms");
+            Storage.BANK_ACCOUNTS_CACHE_SIZE = config.getInt("storage.cache.size", 1000);
+            debug("Account cache size set to " + Storage.BANK_ACCOUNTS_CACHE_SIZE);
+        } else {
+            Storage.BANK_ACCOUNT_DELAY = 0L;
+            debug("Accounts cache disabled");
+        }
+        Storage.BANK_ACCOUNTS_CACHE.clear();
         debug("Storage enable, API is now available");
     }
 
