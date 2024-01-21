@@ -29,13 +29,12 @@ import java.util.*;
 
 public class ESStorage implements StorageImplementation {
     private final String numberOfReplicas;
-    private final Map<Class<?>, List<String>> tagsFormats = new HashMap<>();
     private final boolean allowEmptyTags;
     private final ESConnector DB;
     private final Map<UUID, BulkOperation> moneyOperations = new HashMap<>();
 
     private final String BANK_INDEX_TRANSACTIONS;
-    private final String BANK_INDEX_REGISTRY;
+    private final String BANK_INDEX_ACCOUNTS;
 
     /*
         Main DB
@@ -47,17 +46,8 @@ public class ESStorage implements StorageImplementation {
                     "digits (0-9) and dashed '-', also you can't start with a '-'.");
         }
         this.BANK_INDEX_TRANSACTIONS = prefix + "transactions";
-        this.BANK_INDEX_REGISTRY = prefix + "account-registry";
+        this.BANK_INDEX_ACCOUNTS = prefix + "accounts";
         this.numberOfReplicas = config.getString("storage.elasticsearch.replicas", "0");
-        if (config.getBoolean("enable_builtin_tags", true)) {
-            tagsFormats.put(String.class, Arrays.asList("playerName", "playerUuid"));
-        } else {
-            tagsFormats.put(String.class, config.getStringList("custom_tags.string"));
-            tagsFormats.put(Integer.class, config.getStringList("custom_tags.integer"));
-            tagsFormats.put(Float.class, config.getStringList("custom_tags.long"));
-            tagsFormats.put(Double.class, config.getStringList("custom_tags.double"));
-            tagsFormats.put(Boolean.class, config.getStringList("custom_tags.boolean"));
-        }
         this.allowEmptyTags = config.getBoolean("allow_empty_tags", false);
         DB = new ESConnector(config);
         try (ESConnection connection = DB.getConnection()) {
@@ -82,17 +72,20 @@ public class ESStorage implements StorageImplementation {
                     connection.getClient()
                             .indices()
                             .create(c -> c.index(BANK_INDEX_TRANSACTIONS)
-                                    .mappings(m -> m.properties(ESUtils.getMapping(tagsFormats)))
+                                    .mappings(m -> m.properties(ESUtils.getTagsMapping(Main.TAGS)))
                                     .settings(s -> s.numberOfReplicas(numberOfReplicas))
                             );
                     Main.debug("Index '" + BANK_INDEX_TRANSACTIONS + "' created !");
                 } catch (ElasticsearchException | IOException exception) {
                     throw new StorageExecuteException(exception, "Index create error: " + exception.getMessage());
                 }
+            } else {
+                Main.debug("Index '" + BANK_INDEX_TRANSACTIONS + "' is present !");
             }
-            Main.debug("Index '" + BANK_INDEX_TRANSACTIONS +"' found !");
-            ESUtils.ensureAccountsAgg(connection.getClient(), BANK_INDEX_TRANSACTIONS,
-                    BANK_INDEX_REGISTRY, tagsFormats);
+            Main.debug("Loading all tags transforms to feed '" + BANK_INDEX_ACCOUNTS + "'...");
+            Main.TAGS.forEach((tagName, tagType) -> new ESTransforms(connection.getClient(),
+                    BANK_INDEX_TRANSACTIONS, BANK_INDEX_ACCOUNTS, tagName, tagType));
+            Main.debug("All tags transforms loaded !");
             return true;
         } catch (ElasticsearchException | IOException exception) {
             Main.warning("ElasticSearch client error.");
@@ -119,45 +112,20 @@ public class ESStorage implements StorageImplementation {
      */
 
     @Override
-    public int getMoney(@NotNull UUID player) throws StorageExecuteException {
-        Main.debug("[ES-Sync] getMoney - search money with uuid '" + player + "'.");
+    public int getMoneyFromTag(@NotNull String tagName, @NotNull Object tagValue) throws StorageExecuteException {
+        Main.debug("[ES-Sync] getMoneyFromTag - search money with tag '" + tagName + "=" + tagValue + "'.");
+        BoolQuery.Builder boolQuery = ESUtils.getBuilder(tagName, tagValue);
         SearchRequest request = new SearchRequest.Builder()
-                        .index(BANK_INDEX_REGISTRY)
-                        .query(q -> q.match(m -> m.query("uuid").field(player.toString())))
-                        .size(1)
-                        .build();
-        return fetchMoney(request);
-    }
-
-    @Override
-    public int getTagsMoney(@NotNull Map<String, Object> tags) throws StorageExecuteException {
-        Main.debug("[ES-Sync] getTagsMoney - search money with tags '" + tags + "'.");
-        BoolQuery.Builder boolQuery = new BoolQuery.Builder();
-        for (Map.Entry<String, Object> entry : tags.entrySet()) {
-            if (entry.getValue() instanceof String value) {
-                boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
-            } else if (entry.getValue() instanceof Boolean value) {
-                boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
-            } else if (entry.getValue() instanceof Integer value) {
-                boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
-            } else if (entry.getValue() instanceof Long value) {
-                boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
-            } else if (entry.getValue() instanceof Double value) {
-                boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
-            }
-        }
-        SearchRequest request = new SearchRequest.Builder()
-                        .index(BANK_INDEX_REGISTRY)
+                        .index(BANK_INDEX_ACCOUNTS)
                         .query(q -> q.bool(boolQuery.build()))
                         .size(1)
                         .build();
         int balance = fetchMoney(request);
-        CacheManager.addCacheAccount(Storage.BANK_ACCOUNTS_CACHE, new BankAccount(tags, balance));
+        CacheManager.addCacheAccount(Storage.BANK_ACCOUNTS_CACHE, new BankAccount(tagName, tagValue, balance));
         return balance;
     }
 
     private int fetchMoney(@NotNull SearchRequest request) throws StorageExecuteException {
-        // TODO: 22/07/2023 Add caching ?
         try (ESConnection connection = DB.getConnection()) {
             try {
                 SearchResponse<ObjectNode> response = connection.getClient().search(request, ObjectNode.class);
@@ -175,39 +143,37 @@ public class ESStorage implements StorageImplementation {
     }
 
     @Override
-    public @NotNull UUID addMoneyToTags(@NotNull UUID player, @NotNull Map<String, Object> tags,
+    public @NotNull UUID addMoneyToTags(@NotNull Map<String, Object> tags,
                                         int amount, @Nullable String reason) throws StorageExecuteException {
         if (amount==0) {
             throw new StorageExecuteException(new Throwable(), "Amount can't be 0.");
         }
-        return addOperation(player, tags, amount, reason);
+        return addOperation(tags, amount, reason);
     }
 
     @Override
-    public @NotNull UUID setMoneyToTags(@NotNull UUID player, @NotNull Map<String, Object> tags,
+    public @NotNull UUID setMoneyToTag(@NotNull String tagName, @NotNull Object tagValue,
                                         int amount, @Nullable String reason) throws StorageExecuteException {
-        int calculatedAmount = amount - getTagsMoney(tags);
-        return addOperation(player, tags, calculatedAmount, reason);
+        int calculatedAmount = amount - getMoneyFromTag(tagName, tagValue);
+        return addOperation(Map.of(tagName, tagValue), calculatedAmount, reason);
     }
 
-    private @NotNull UUID addOperation(@NotNull UUID player, @NotNull Map<String, Object> tags, int amount,
+    private @NotNull UUID addOperation(@NotNull Map<String, Object> tags, int amount,
                                @Nullable String reason) throws StorageExecuteException {
         if (!allowEmptyTags && tags.isEmpty()) {
             throw new StorageExecuteException(new IllegalArgumentException("Empty tags not allowed."),
-                    "Empty tags can't be saved in storage, because 'allow_empty_tags' config is set to false. " +
-                            "Ensure you correctly define tags for UUID '" + player + "'.");
+                    "Empty tags can't be saved in storage, because 'allow_empty_tags' config is set to false.");
         }
         UUID transactionId = UUID.randomUUID();
         reason = Objects.requireNonNullElse(reason, "No reason provided");
         if (reason.isBlank()) reason = "No reason provided";
         Map<String, Object> log = new HashMap<>();
         log.put("transactionId", transactionId);
-        log.put("uuid", player);
         log.put("tags", tags);
         log.put("operation", amount);
         log.put("reason", reason);
         log.put("@timestamp", DateMileKat.getDateEs());
-        MoneyPrepareOperation event = new MoneyPrepareOperation(transactionId, player, tags, amount, reason);
+        MoneyPrepareOperation event = new MoneyPrepareOperation(transactionId, tags, amount, reason);
         if (event.isCancelled()) {
             throw new StorageExecuteException(new Throwable(), "Money operation cancelled by plugin.");
         }
@@ -220,7 +186,7 @@ public class ESStorage implements StorageImplementation {
                 ).build()
         );
         Main.getInstance().getServer().getPluginManager().callEvent(
-                new MoneySavedSuccessfully(transactionId, player, tags, amount, reason));
+                new MoneySavedSuccessfully(transactionId, tags, amount, reason));
         return transactionId;
     }
 

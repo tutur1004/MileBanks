@@ -3,7 +3,8 @@ author: MileKat
 main: fr.milekat.banks.Main
 version: ${pluginVersion}
 api-version: '1.20'
-description: "API/Plugin to add banks to minecraft"
+description: "MileBanks: Money management plugin. Tag-based player groups, 
+Elasticsearch logs transactions and visualizes detailed history."
 website: https://github.com/tutur1004/MileBanks
 libraries:
   # Utils

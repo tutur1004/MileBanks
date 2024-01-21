@@ -29,19 +29,15 @@ public interface StorageImplementation extends CacheManager {
             ES Queries execution
      */
 
-    int getMoney(@NotNull UUID player) throws StorageExecuteException;
+    int getMoneyFromTag(@NotNull String tagName, @NotNull Object tagValue) throws StorageExecuteException;
 
-    int getTagsMoney(@NotNull Map<String, Object> tags) throws StorageExecuteException;
+    UUID addMoneyToTags(@NotNull Map<String, Object> tags, int amount, String reason) throws StorageExecuteException;
 
-
-    UUID addMoneyToTags(@NotNull UUID player, Map<String, Object> tags, int amount, String reason)
-            throws StorageExecuteException;
-
-    default UUID removeMoneyToTags(@NotNull UUID player, @NotNull Map<String, Object> tags, int amount, String reason)
+    default UUID removeMoneyToTags(@NotNull Map<String, Object> tags, int amount, String reason)
             throws StorageExecuteException {
-        return addMoneyToTags(player, tags, (-1 * amount), reason);
+        return addMoneyToTags(tags, (-1 * amount), reason);
     }
 
-    UUID setMoneyToTags(@NotNull UUID player, @NotNull Map<String, Object> tags, int amount, String reason)
+    UUID setMoneyToTag(@NotNull String tagName, @NotNull Object tagValue, int amount, String reason)
             throws StorageExecuteException;
 }

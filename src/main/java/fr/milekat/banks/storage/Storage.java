@@ -14,8 +14,9 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class Storage {
-    public static final long BANK_ACCOUNT_DELAY = TimeUnit.MILLISECONDS.convert(5L, TimeUnit.SECONDS);
+    public static long BANK_ACCOUNT_DELAY = TimeUnit.MILLISECONDS.convert(5L, TimeUnit.SECONDS);
     public static Map<BankAccount, Date> BANK_ACCOUNTS_CACHE = new HashMap<>();
+    public static int BANK_ACCOUNTS_CACHE_SIZE = 1000;
     private final StorageImplementation executor;
 
     public Storage(@NotNull Configs config) throws StorageLoaderException {

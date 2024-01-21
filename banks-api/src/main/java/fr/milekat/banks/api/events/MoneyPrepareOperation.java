@@ -18,7 +18,6 @@ public class MoneyPrepareOperation extends Event implements Cancellable {
     private static final HandlerList HANDLERS_LIST = new HandlerList();
     private boolean cancelled;
     private final UUID transactionId;
-    private final UUID accountId;
     private final Map<String, Object> tags;
     private final double amount;
     private final String reason;
@@ -26,16 +25,14 @@ public class MoneyPrepareOperation extends Event implements Cancellable {
     /**
      * Constructs a new MoneyPrepareOperation with the specified transaction ID, account ID, tags, amount, and reason.
      * @param transactionId The transaction ID.
-     * @param accountId The account ID.
      * @param tags The tags.
      * @param amount The amount.
      * @param reason The reason.
      */
-    public MoneyPrepareOperation(UUID transactionId, UUID accountId, Map<String, Object> tags,
+    public MoneyPrepareOperation(UUID transactionId, Map<String, Object> tags,
                                  double amount, String reason) {
         super();
         this.transactionId = transactionId;
-        this.accountId = accountId;
         this.tags = tags;
         this.amount = amount;
         this.reason = reason;
@@ -47,14 +44,6 @@ public class MoneyPrepareOperation extends Event implements Cancellable {
      */
     public UUID getTransactionId() {
         return transactionId;
-    }
-
-    /**
-     * Gets the account ID associated with the transaction.
-     * @return account ID (Usually player uuid).
-     */
-    public UUID getAccountId() {
-        return accountId;
     }
 
     /**
