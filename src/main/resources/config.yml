@@ -36,7 +36,9 @@ messages:
         help: "help&r: &eShow this help message"
 
 # Advanced users ONLY
-# Need 'default_tags' to false
+# Need 'enable_builtin_tags' to false
+# Tags must be lowercase and without spaces, only letters and dashes are allowed
+# Tags names length must be between 3 and 16 characters
 custom_tags:
   # List of text tags (Will be stored as String keyword) [Max value 256 chars]
   string: ["playerName", "playerUuid"]

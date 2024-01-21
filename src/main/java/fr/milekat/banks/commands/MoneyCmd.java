@@ -60,9 +60,9 @@ public class MoneyCmd implements TabExecutor {
                         reason = args[3];
                     }
                     switch (moneyAction) {
-                        case ADD -> Main.getStorage().addMoneyToTags(player.getUniqueId(), tags, amount, reason);
-                        case REMOVE -> Main.getStorage().removeMoneyToTags(player.getUniqueId(), tags, amount, reason);
-                        case SET -> Main.getStorage().setMoneyToTags(player.getUniqueId(), tags, amount, reason);
+                        case ADD -> Main.getStorage().addMoneyToTags(tags, amount, reason);
+                        case REMOVE -> Main.getStorage().removeMoneyToTags(tags, amount, reason);
+                        case SET -> Main.getStorage().setMoneyToTags(tags, amount, reason);
                     }
                 } else if (moneyAction.equals(MoneyAction.TAGS)) {
                     Main.message(sender, "Player tags:");

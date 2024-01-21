@@ -14,7 +14,6 @@ import java.util.UUID;
 public class MoneySavedSuccessfully extends Event {
     private static final HandlerList HANDLERS_LIST = new HandlerList();
     private final UUID transactionId;
-    private final UUID accountId;
     private final Map<String, Object> tags;
     private final double amount;
     private final String reason;
@@ -22,16 +21,14 @@ public class MoneySavedSuccessfully extends Event {
     /**
      * Constructs a new MoneySavedSuccessfully event with the specified transaction ID, account ID, tags, amount, and
      * @param transactionId The transaction ID.
-     * @param accountId The account ID.
      * @param tags The tags.
      * @param amount The amount.
      * @param reason The reason.
      */
-    public MoneySavedSuccessfully(UUID transactionId, UUID accountId, Map<String, Object> tags,
+    public MoneySavedSuccessfully(UUID transactionId, Map<String, Object> tags,
                                   double amount, String reason) {
         super();
         this.transactionId = transactionId;
-        this.accountId = accountId;
         this.tags = tags;
         this.amount = amount;
         this.reason = reason;
@@ -43,14 +40,6 @@ public class MoneySavedSuccessfully extends Event {
      */
     public UUID getTransactionId() {
         return transactionId;
-    }
-
-    /**
-     * Gets the account ID associated with the transaction.
-     * @return account ID (Usually player uuid).
-     */
-    public UUID getAccountId() {
-        return accountId;
     }
 
     /**

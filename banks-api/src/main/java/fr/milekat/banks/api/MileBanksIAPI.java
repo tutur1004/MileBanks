@@ -38,17 +38,61 @@ public interface MileBanksIAPI {
      * @return The amount of money associated with the tag.
      * @throws StorageException if there is an error accessing the storage.
      */
-    int getMoneyByTag(@NotNull String key, @NotNull Object value) throws StorageException;
+    default int getMoneyByTag(@NotNull String key, @NotNull Object value) throws StorageException {
+        return getMoneyByTags(Map.of(key, value));
+    }
 
     /**
      * Retrieves the amount of money associated with multiple tags.
      *
-     * @param tags A map of tags, where each key represents the key of the tag and the value represents the value of the tag.
+     * @param tags   A map of tags, where each key represents the tag name and the value of the tag.
      * @return The total amount of money associated with the tags.
      * @throws StorageException if there is an error accessing the storage.
      */
     int getMoneyByTags(@NotNull Map<String, Object> tags) throws StorageException;
 
+    /**
+     * Adds an amount of money to multiple tags.
+     *
+     * @param tags   A map of tags, where each key represents the tag name and the value of the tag.
+     * @param amount The amount of money to add.
+     * @param reason Operation reason (Or an operation description).
+     * @return Transaction id.
+     * @throws StorageException if there is an error while updating the storage.
+     */
+    UUID addMoneyByTags(@NotNull Map<String, Object> tags,
+                        int amount, @Nullable String reason) throws StorageException;
+    /**
+     * Adds an amount of money to multiple tags.
+     *
+     * @param player The {@link UUID} of the player.
+     * @param tags   A map of tags, where each key represents the tag name and the value of the tag.
+     * @param amount The amount of money to add.
+     * @param reason Operation reason (Or an operation description).
+     * @return Transaction id.
+     * @throws StorageException if there is an error while updating the storage.
+     * @deprecated Use {@link #addMoneyByTag(String, Object, int, String)} or
+     * {@link #addMoneyByTags(Map, int, String)} instead.
+     */
+    @Deprecated
+    default UUID addMoneyByTags(@NotNull UUID player, @NotNull Map<String, Object> tags,
+                        int amount, @Nullable String reason) throws StorageException {
+        return addMoneyByTags(tags, amount, reason);
+    }
+    /**
+     * Adds an amount of money to a specific tag.
+     *
+     * @param key    The key of the tag.
+     * @param value  The value of the tag.
+     * @param amount The amount of money to add.
+     * @param reason Operation reason (Or an operation description).
+     * @return Transaction id.
+     * @throws StorageException if there is an error while updating the storage.
+     */
+    default UUID addMoneyByTag(@NotNull String key, @NotNull Object value,
+                       int amount, @Nullable String reason) throws StorageException {
+        return addMoneyByTags(Map.of(key, value), amount, reason);
+    }
     /**
      * Adds an amount of money to a specific tag.
      *
@@ -59,22 +103,57 @@ public interface MileBanksIAPI {
      * @param reason Operation reason (Or an operation description).
      * @return Transaction id.
      * @throws StorageException if there is an error while updating the storage.
+     * @deprecated Use {@link #addMoneyByTag(String, Object, int, String)} or
+     * {@link #addMoneyByTags(Map, int, String)} instead.
      */
-    UUID addMoneyByTag(@NotNull UUID player, @NotNull String key, @NotNull Object value,
-                       int amount, @Nullable String reason) throws StorageException;
+    @Deprecated
+    default UUID addMoneyByTag(@NotNull UUID player, @NotNull String key, @NotNull Object value,
+                       int amount, @Nullable String reason) throws StorageException {
+        return addMoneyByTag(key, value, amount, reason);
+    }
+
     /**
-     * Adds an amount of money to multiple tags.
+     * Removes an amount of money from multiple tags.
      *
-     * @param player The {@link UUID} of the player.
-     * @param tags   A map of tags, where each key represents the key of the tag and the value represents the value of the tag.
-     * @param amount The amount of money to add.
+     * @param tags   A map of tags, where each key represents the tag name and the value of the tag.
+     * @param amount The amount of money to remove.
      * @param reason Operation reason (Or an operation description).
      * @return Transaction id.
      * @throws StorageException if there is an error while updating the storage.
      */
-    UUID addMoneyByTags(@NotNull UUID player, @NotNull Map<String, Object> tags,
-                        int amount, @Nullable String reason) throws StorageException;
-
+    UUID removeMoneyByTags(@NotNull Map<String, Object> tags,
+                           int amount, @Nullable String reason) throws StorageException;
+    /**
+     * Removes an amount of money from multiple tags.
+     *
+     * @param player The {@link UUID} of the player.
+     * @param tags   A map of tags, where each key represents the tag name and the value of the tag.
+     * @param amount The amount of money to remove.
+     * @param reason Operation reason (Or an operation description).
+     * @return Transaction id.
+     * @throws StorageException if there is an error while updating the storage.
+     * @deprecated Use {@link #removeMoneyByTag(String, Object, int, String)} or
+     * {@link #removeMoneyByTags(Map, int, String)} instead.
+     */
+    @Deprecated
+    default UUID removeMoneyByTags(@NotNull UUID player, @NotNull Map<String, Object> tags,
+                           int amount, @Nullable String reason) throws StorageException {
+        return removeMoneyByTags(tags, amount, reason);
+    }
+    /**
+     * Removes an amount of money from a specific tag.
+     *
+     * @param key    The key of the tag.
+     * @param value  The value of the tag.
+     * @param amount The amount of money to remove.
+     * @param reason Operation reason (Or an operation description).
+     * @return Transaction id.
+     * @throws StorageException if there is an error while updating the storage.
+     */
+    default UUID removeMoneyByTag(@NotNull String key, @NotNull Object value,
+                          int amount, @Nullable String reason) throws StorageException {
+        return removeMoneyByTags(Map.of(key, value), amount, reason);
+    }
     /**
      * Removes an amount of money from a specific tag.
      *
@@ -85,22 +164,57 @@ public interface MileBanksIAPI {
      * @param reason Operation reason (Or an operation description).
      * @return Transaction id.
      * @throws StorageException if there is an error while updating the storage.
+     * @deprecated Use {@link #removeMoneyByTag(String, Object, int, String)} or
+     * {@link #removeMoneyByTags(Map, int, String)} instead.
      */
-    UUID removeMoneyByTag(@NotNull UUID player, @NotNull String key, @NotNull Object value,
-                          int amount, @Nullable String reason) throws StorageException;
+    @Deprecated
+    default UUID removeMoneyByTag(@NotNull UUID player, @NotNull String key, @NotNull Object value,
+                          int amount, @Nullable String reason) throws StorageException {
+        return removeMoneyByTag(key, value, amount, reason);
+    }
+
     /**
-     * Removes an amount of money from multiple tags.
+     * Sets the amount of money for multiple tags.
      *
-     * @param player The {@link UUID} of the player.
-     * @param tags   A map of tags, where each key represents the key of the tag and the value represents the value of the tag.
-     * @param amount The amount of money to remove.
+     * @param tags   A map of tags, where each key represents the tag name and the value of the tag.
+     * @param amount The new amount of money.
      * @param reason Operation reason (Or an operation description).
      * @return Transaction id.
      * @throws StorageException if there is an error while updating the storage.
      */
-    UUID removeMoneyByTags(@NotNull UUID player, @NotNull Map<String, Object> tags,
-                           int amount, @Nullable String reason) throws StorageException;
-
+    UUID setMoneyByTags(@NotNull Map<String, Object> tags,
+                        int amount, @Nullable String reason) throws StorageException;
+    /**
+     * Sets the amount of money for multiple tags.
+     *
+     * @param player The {@link UUID} of the player.
+     * @param tags   A map of tags, where each key represents the tag name and the value of the tag.
+     * @param amount The new amount of money.
+     * @param reason Operation reason (Or an operation description).
+     * @return Transaction id.
+     * @throws StorageException if there is an error while updating the storage.
+     * @deprecated Use {@link #setMoneyByTag(String, Object, int, String)} or
+     * {@link #setMoneyByTags(Map, int, String)} instead.
+     */
+    @Deprecated
+    default UUID setMoneyByTags(@NotNull UUID player, @NotNull Map<String, Object> tags,
+                        int amount, @Nullable String reason) throws StorageException {
+        return setMoneyByTags(tags, amount, reason);
+    }
+    /**
+     * Sets the amount of money for a specific tag.
+     *
+     * @param key    The key of the tag.
+     * @param value  The value of the tag.
+     * @param amount The new amount of money.
+     * @param reason Operation reason (Or an operation description).
+     * @return Transaction id.
+     * @throws StorageException if there is an error while updating the storage.
+     */
+    default UUID setMoneyByTag(@NotNull String key, @NotNull Object value,
+                               int amount, @Nullable String reason) throws StorageException {
+        return setMoneyByTags(Map.of(key, value), amount, reason);
+    }
     /**
      * Sets the amount of money for a specific tag.
      *
@@ -111,21 +225,14 @@ public interface MileBanksIAPI {
      * @param reason Operation reason (Or an operation description).
      * @return Transaction id.
      * @throws StorageException if there is an error while updating the storage.
+     * @deprecated Use {@link #setMoneyByTag(String, Object, int, String)} or
+     * {@link #setMoneyByTags(Map, int, String)} instead.
      */
-    UUID setMoneyByTag(@NotNull UUID player, @NotNull String key, @NotNull Object value,
-                       int amount, @Nullable String reason) throws StorageException;
-    /**
-     * Sets the amount of money for multiple tags.
-     *
-     * @param player The {@link UUID} of the player.
-     * @param tags   A map of tags, where each key represents the key of the tag and the value represents the value of the tag.
-     * @param amount The new amount of money.
-     * @param reason Operation reason (Or an operation description).
-     * @return Transaction id.
-     * @throws StorageException if there is an error while updating the storage.
-     */
-    UUID setMoneyByTags(@NotNull UUID player, @NotNull Map<String, Object> tags,
-                        int amount, @Nullable String reason) throws StorageException;
+    @Deprecated
+    default UUID setMoneyByTag(@NotNull UUID player, @NotNull String key, @NotNull Object value,
+                               int amount, @Nullable String reason) throws StorageException {
+        return setMoneyByTag(key, value, amount, reason);
+    }
 
     /**
      * Retrieves the tags associated with a player identified by UUID.
