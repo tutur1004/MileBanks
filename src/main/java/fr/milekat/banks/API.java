@@ -6,6 +6,7 @@ import fr.milekat.banks.storage.exceptions.StorageExecuteException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -18,21 +19,25 @@ public class API implements MileBanksIAPI {
     }
 
     @Override
-    public int getMoney(@NotNull UUID player) throws StorageException {
+    public Map<String, Integer> getMoney(@NotNull UUID player) throws StorageException {
         try {
-            if (!Main.playerTags.containsKey(player)) {
-                return 0;
+            if (!Main.PLAYER_TAGS.containsKey(player)) {
+                return new HashMap<>();
             }
-            return Main.getStorage().getCacheBalance(Main.playerTags.get(player));
+            Map<String, Integer> tagsBalances = new HashMap<>();
+            for (Map.Entry<String, Object> entry : Main.PLAYER_TAGS.get(player).entrySet()) {
+                tagsBalances.put(entry.getKey(), Main.getStorage().getCacheBalance(entry.getKey(), entry.getValue()));
+            }
+            return tagsBalances;
         } catch (StorageExecuteException exception) {
             throw new StorageException(exception, exception.getMessage());
         }
     }
 
     @Override
-    public int getMoneyByTags(@NotNull Map<String, Object> tags) throws StorageException {
+    public int getMoneyByTag(@NotNull String tagName, @NotNull Object tagValue) throws StorageException {
         try {
-            return Main.getStorage().getCacheBalance(tags);
+            return Main.getStorage().getCacheBalance(tagName, tagValue);
         } catch (StorageExecuteException exception) {
             throw new StorageException(exception, exception.getMessage());
         }
@@ -50,7 +55,7 @@ public class API implements MileBanksIAPI {
     }
 
     @Override
-    public UUID removeMoneyByTags( @NotNull Map<String, Object> tags, int amount,
+    public UUID removeMoneyByTags(@NotNull Map<String, Object> tags, int amount,
                                    @Nullable String reason) throws StorageException {
         try {
             return Main.getStorage().removeMoneyToTags(tags, amount, Objects.requireNonNullElse(reason,
@@ -61,10 +66,10 @@ public class API implements MileBanksIAPI {
     }
 
     @Override
-    public UUID setMoneyByTags(@NotNull Map<String, Object> tags, int amount,
+    public UUID setMoneyByTag(@NotNull String tagName, @NotNull Object tagValue, int amount,
                                @Nullable String reason) throws StorageException {
         try {
-            return Main.getStorage().setMoneyToTags(tags, amount, Objects.requireNonNullElse(reason,
+            return Main.getStorage().setMoneyToTag(tagName, tagValue, amount, Objects.requireNonNullElse(reason,
                     "No reason provided, using API"));
         } catch (StorageExecuteException exception) {
             throw new StorageException(exception, exception.getMessage());
@@ -73,16 +78,14 @@ public class API implements MileBanksIAPI {
 
     @Override
     public @Nullable Map<String, Object> getPlayerTags(@NotNull UUID uuid) {
-        return Main.playerTags.getOrDefault(uuid, null);
+        return Main.PLAYER_TAGS.getOrDefault(uuid, null);
     }
 
     @Override
-    public void removePlayerTags(@NotNull UUID uuid) {
-        Main.playerTags.remove(uuid);
-    }
-
-    @Override
-    public void setPlayerTags(@NotNull UUID uuid, @NotNull Map<String, Object> tags) {
-        Main.playerTags.put(uuid, tags);
+    public void setPlayerTags(@NotNull UUID uuid, @NotNull Map<String, Object> tags) throws IllegalArgumentException {
+        if (Main.PLAYER_TAGS.containsKey(uuid)) {
+            throw new IllegalArgumentException("Missing required tags ! Required: " + Main.PLAYER_TAGS.get(uuid));
+        }
+        Main.PLAYER_TAGS.put(uuid, tags);
     }
 }

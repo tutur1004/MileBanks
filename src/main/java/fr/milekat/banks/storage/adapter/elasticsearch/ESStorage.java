@@ -29,7 +29,6 @@ import java.util.*;
 
 public class ESStorage implements StorageImplementation {
     private final String numberOfReplicas;
-    private final Map<Class<?>, List<String>> tagsFormats = new HashMap<>();
     private final boolean allowEmptyTags;
     private final ESConnector DB;
     private final Map<UUID, BulkOperation> moneyOperations = new HashMap<>();
@@ -49,15 +48,6 @@ public class ESStorage implements StorageImplementation {
         this.BANK_INDEX_TRANSACTIONS = prefix + "transactions";
         this.BANK_INDEX_ACCOUNTS = prefix + "accounts";
         this.numberOfReplicas = config.getString("storage.elasticsearch.replicas", "0");
-        if (config.getBoolean("enable_builtin_tags", true)) {
-            tagsFormats.put(String.class, Arrays.asList("playerName", "playerUuid"));
-        } else {
-            tagsFormats.put(String.class, config.getStringList("custom_tags.string"));
-            tagsFormats.put(Integer.class, config.getStringList("custom_tags.integer"));
-            tagsFormats.put(Float.class, config.getStringList("custom_tags.long"));
-            tagsFormats.put(Double.class, config.getStringList("custom_tags.double"));
-            tagsFormats.put(Boolean.class, config.getStringList("custom_tags.boolean"));
-        }
         this.allowEmptyTags = config.getBoolean("allow_empty_tags", false);
         DB = new ESConnector(config);
         try (ESConnection connection = DB.getConnection()) {
@@ -82,7 +72,7 @@ public class ESStorage implements StorageImplementation {
                     connection.getClient()
                             .indices()
                             .create(c -> c.index(BANK_INDEX_TRANSACTIONS)
-                                    .mappings(m -> m.properties(ESUtils.getTagsMapping(tagsFormats)))
+                                    .mappings(m -> m.properties(ESUtils.getTagsMapping(Main.TAGS)))
                                     .settings(s -> s.numberOfReplicas(numberOfReplicas))
                             );
                     Main.debug("Index '" + BANK_INDEX_TRANSACTIONS + "' created !");
@@ -93,10 +83,8 @@ public class ESStorage implements StorageImplementation {
                 Main.debug("Index '" + BANK_INDEX_TRANSACTIONS + "' is present !");
             }
             Main.debug("Loading all tags transforms to feed '" + BANK_INDEX_ACCOUNTS + "'...");
-            Map<String, Class<?>> tags = new HashMap<>();
-            tagsFormats.forEach((type, tagsList) -> tagsList.forEach(tag -> tags.put(tag, type)));
-            tags.forEach((tagName, tagType) -> new ESTransforms(connection.getClient(), BANK_INDEX_TRANSACTIONS,
-                    BANK_INDEX_ACCOUNTS, tagName, tagType));
+            Main.TAGS.forEach((tagName, tagType) -> new ESTransforms(connection.getClient(),
+                    BANK_INDEX_TRANSACTIONS, BANK_INDEX_ACCOUNTS, tagName, tagType));
             Main.debug("All tags transforms loaded !");
             return true;
         } catch (ElasticsearchException | IOException exception) {
@@ -135,29 +123,16 @@ public class ESStorage implements StorageImplementation {
     }
 
     @Override
-    public int getTagsMoney(@NotNull Map<String, Object> tags) throws StorageExecuteException {
-        Main.debug("[ES-Sync] getTagsMoney - search money with tags '" + tags + "'.");
-        BoolQuery.Builder boolQuery = new BoolQuery.Builder();
-        for (Map.Entry<String, Object> entry : tags.entrySet()) {
-            if (entry.getValue() instanceof String value) {
-                boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
-            } else if (entry.getValue() instanceof Boolean value) {
-                boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
-            } else if (entry.getValue() instanceof Integer value) {
-                boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
-            } else if (entry.getValue() instanceof Long value) {
-                boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
-            } else if (entry.getValue() instanceof Double value) {
-                boolQuery.must(mu -> mu.match(ma -> ma.field(entry.getKey()).query(value)));
-            }
-        }
+    public int getMoneyFromTag(@NotNull String tagName, @NotNull Object tagValue) throws StorageExecuteException {
+        Main.debug("[ES-Sync] getMoneyFromTag - search money with tag '" + tagName + "=" + tagValue + "'.");
+        BoolQuery.Builder boolQuery = ESUtils.getBuilder(tagName, tagValue);
         SearchRequest request = new SearchRequest.Builder()
                         .index(BANK_INDEX_ACCOUNTS)
                         .query(q -> q.bool(boolQuery.build()))
                         .size(1)
                         .build();
         int balance = fetchMoney(request);
-        CacheManager.addCacheAccount(Storage.BANK_ACCOUNTS_CACHE, new BankAccount(tags, balance));
+        CacheManager.addCacheAccount(Storage.BANK_ACCOUNTS_CACHE, new BankAccount(tagName, tagValue, balance));
         return balance;
     }
 
@@ -189,10 +164,10 @@ public class ESStorage implements StorageImplementation {
     }
 
     @Override
-    public @NotNull UUID setMoneyToTags(@NotNull Map<String, Object> tags,
+    public @NotNull UUID setMoneyToTag(@NotNull String tagName, @NotNull Object tagValue,
                                         int amount, @Nullable String reason) throws StorageExecuteException {
-        int calculatedAmount = amount - getTagsMoney(tags);
-        return addOperation(tags, calculatedAmount, reason);
+        int calculatedAmount = amount - getMoneyFromTag(tagName, tagValue);
+        return addOperation(Map.of(tagName, tagValue), calculatedAmount, reason);
     }
 
     private @NotNull UUID addOperation(@NotNull Map<String, Object> tags, int amount,

@@ -31,7 +31,7 @@ public interface StorageImplementation extends CacheManager {
 
     int getMoney(@NotNull UUID player) throws StorageExecuteException;
 
-    int getTagsMoney(@NotNull Map<String, Object> tags) throws StorageExecuteException;
+    int getMoneyFromTag(@NotNull String tagName, @NotNull Object tagValue) throws StorageExecuteException;
 
     UUID addMoneyToTags(@NotNull Map<String, Object> tags, int amount, String reason) throws StorageExecuteException;
 
@@ -40,5 +40,6 @@ public interface StorageImplementation extends CacheManager {
         return addMoneyToTags(tags, (-1 * amount), reason);
     }
 
-    UUID setMoneyToTags(@NotNull Map<String, Object> tags, int amount, String reason) throws StorageExecuteException;
+    UUID setMoneyToTag(@NotNull String tagName, @NotNull Object tagValue, int amount, String reason)
+            throws StorageExecuteException;
 }

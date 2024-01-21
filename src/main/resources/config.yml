@@ -1,8 +1,5 @@
 # Debug mode
 debug: false
-# If true, storage will be allowed to store non tagged players,
-# NOTE: if set to false, 'money get' will not work for untagged accounts
-allow_empty_tags: false
 # If false, you will have to set players tags alone
 enable_builtin_tags: true
 # Enable or disable the builtin admin money command (/money, /bank, /banks, /money-admin)
@@ -27,11 +24,11 @@ messages:
   command:
     money:
       help:
-        add: "add <playerUuid> <amount> [reason]&r: &eAdd money to a playerUuid's balance"
-        remove: "remove <playerUuid> <amount> [reason]&r: &eRemove money from playerUuid's balance"
-        set: "set <playerUuid> <amount> [reason]&r: &eSet playerUuid's money balance"
-        get: "get <playerUuid>&r: &eGet balance of a playerUuid"
-        tags: "tags <playerUuid>&r: &eGet list of tags of a playerUuid"
+        add: "add <player> <amount> [reason]&r: &eAdd money to a player's balance"
+        remove: "remove <player> <amount> [reason]&r: &eRemove money from player's balance"
+        set: "set <player> <amount> [reason]&r: &eSet player's money balance"
+        get: "get <player>&r: &eGet balance of a player"
+        tags: "tags <player>&r: &eGet list of tags of a player"
         reload: "reload&r: &eReload the plugin"
         help: "help&r: &eShow this help message"
 
@@ -41,7 +38,7 @@ messages:
 # Tags names length must be between 3 and 16 characters
 custom_tags:
   # List of text tags (Will be stored as String keyword) [Max value 256 chars]
-  string: ["playerName", "playerUuid"]
+  string: ["player-name", "player-uuid"]
   # Specific number value [Max number length 20 chars]
   integer: []
   long: []
