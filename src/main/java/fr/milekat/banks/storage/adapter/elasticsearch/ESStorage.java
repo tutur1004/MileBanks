@@ -15,6 +15,8 @@ import fr.milekat.banks.api.events.MoneySavedSuccessfully;
 import fr.milekat.banks.storage.CacheManager;
 import fr.milekat.banks.storage.Storage;
 import fr.milekat.banks.storage.StorageImplementation;
+import fr.milekat.banks.storage.adapter.elasticsearch.loaders.Index;
+import fr.milekat.banks.storage.adapter.elasticsearch.loaders.Transforms;
 import fr.milekat.banks.storage.exceptions.StorageExecuteException;
 import fr.milekat.banks.storage.exceptions.StorageLoaderException;
 import fr.milekat.banks.utils.BankAccount;
@@ -28,13 +30,14 @@ import java.io.IOException;
 import java.util.*;
 
 public class ESStorage implements StorageImplementation {
-    private final String numberOfReplicas;
-    private final boolean allowEmptyTags;
     private final ESConnector DB;
-    private final Map<UUID, BulkOperation> moneyOperations = new HashMap<>();
-
     private final String BANK_INDEX_TRANSACTIONS;
+    private final Map<String, Class<?>> transactions_fields = new HashMap<>();
+
     private final String BANK_INDEX_ACCOUNTS;
+    private final Map<String, Class<?>> accounts_fields = new HashMap<>();
+    private final String numberOfReplicas;
+    private final Map<UUID, BulkOperation> moneyOperations = new HashMap<>();
 
     /*
         Main DB
@@ -48,7 +51,13 @@ public class ESStorage implements StorageImplementation {
         this.BANK_INDEX_TRANSACTIONS = prefix + "transactions";
         this.BANK_INDEX_ACCOUNTS = prefix + "accounts";
         this.numberOfReplicas = config.getString("storage.elasticsearch.replicas", "0");
-        this.allowEmptyTags = config.getBoolean("allow_empty_tags", false);
+        transactions_fields.put("uuid", UUID.class);
+        transactions_fields.put("operation", Double.class);
+        transactions_fields.put("reason", String.class);
+        transactions_fields.put("transactionId", UUID.class);
+        transactions_fields.put("@timestamp", Date.class);
+        accounts_fields.put("amount", Integer.class);
+        accounts_fields.putAll(Main.TAGS);
         DB = new ESConnector(config);
         try (ESConnection connection = DB.getConnection()) {
             Main.debug(connection.getClient().cluster().health().toString());
@@ -60,38 +69,21 @@ public class ESStorage implements StorageImplementation {
 
     @Override
     public boolean checkStorages() {
-        //  Check if index exist, otherwise create it
-        Main.debug("Check if index '" + BANK_INDEX_TRANSACTIONS + "' is present...");
+        Main.debug("Check if storage is ready...");
+        String TAGS_FIELD = "tags";
         try (ESConnection connection = DB.getConnection()) {
-            if (!connection.getClient()
-                    .indices()
-                    .exists(e -> e.index(BANK_INDEX_TRANSACTIONS))
-                    .value()) {
-                Main.debug("Index '" + BANK_INDEX_TRANSACTIONS +"' not found, creating...");
-                try {
-                    connection.getClient()
-                            .indices()
-                            .create(c -> c.index(BANK_INDEX_TRANSACTIONS)
-                                    .mappings(m -> m.properties(ESUtils.getTagsMapping(Main.TAGS)))
-                                    .settings(s -> s.numberOfReplicas(numberOfReplicas))
-                            );
-                    Main.debug("Index '" + BANK_INDEX_TRANSACTIONS + "' created !");
-                } catch (ElasticsearchException | IOException exception) {
-                    throw new StorageExecuteException(exception, "Index create error: " + exception.getMessage());
-                }
-            } else {
-                Main.debug("Index '" + BANK_INDEX_TRANSACTIONS + "' is present !");
-            }
-            Main.debug("Loading all tags transforms to feed '" + BANK_INDEX_ACCOUNTS + "'...");
-            Main.TAGS.forEach((tagName, tagType) -> new ESTransforms(connection.getClient(),
+            Main.debug("Check indices...");
+            new Index(connection.getClient(), BANK_INDEX_TRANSACTIONS, numberOfReplicas,
+                    transactions_fields, Main.TAGS, TAGS_FIELD);
+            new Index(connection.getClient(), BANK_INDEX_ACCOUNTS, numberOfReplicas,
+                    accounts_fields, new HashMap<>(), "");
+            Main.debug("Check transforms...");
+            Main.TAGS.forEach((tagName, tagType) -> new Transforms(connection.getClient(),
                     BANK_INDEX_TRANSACTIONS, BANK_INDEX_ACCOUNTS, tagName, tagType));
-            Main.debug("All tags transforms loaded !");
+            Main.debug("Storage is ready.");
             return true;
-        } catch (ElasticsearchException | IOException exception) {
-            Main.warning("ElasticSearch client error.");
-            Main.stack(exception.getStackTrace());
-        } catch (StorageExecuteException exception) {
-            Main.warning("ElasticSearch storage error.");
+        } catch (IOException | StorageLoaderException exception) {
+            Main.warning("ElasticSearch load storage error.");
             Main.stack(exception.getStackTrace());
         }
         return false;
@@ -160,10 +152,6 @@ public class ESStorage implements StorageImplementation {
 
     private @NotNull UUID addOperation(@NotNull Map<String, Object> tags, int amount,
                                @Nullable String reason) throws StorageExecuteException {
-        if (!allowEmptyTags && tags.isEmpty()) {
-            throw new StorageExecuteException(new IllegalArgumentException("Empty tags not allowed."),
-                    "Empty tags can't be saved in storage, because 'allow_empty_tags' config is set to false.");
-        }
         UUID transactionId = UUID.randomUUID();
         reason = Objects.requireNonNullElse(reason, "No reason provided");
         if (reason.isBlank()) reason = "No reason provided";

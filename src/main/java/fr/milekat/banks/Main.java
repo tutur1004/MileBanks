@@ -25,6 +25,7 @@ public class Main extends JavaPlugin {
     private static JavaPlugin plugin;
     private static Configs config;
     public static Boolean DEBUG = false;
+    public static String PREFIX;
     private static Storage LOADED_STORAGE;
     public static final Map<String, Class<?>> TAGS = new HashMap<>();
     public static final Map<UUID, Map<String, Object>> PLAYER_TAGS = new HashMap<>();
@@ -120,8 +121,8 @@ public class Main extends JavaPlugin {
      * Send a formatted message to sender
      */
     public static void message(@NotNull Player player, @NotNull String message) {
-        player.sendMessage(Main.getConfigs().getMessage("messages.prefix") + ChatColor.RESET +
-                ChatColor.translateAlternateColorCodes('&', message));
+        player.sendMessage(ChatColor.translateAlternateColorCodes('&',
+                PREFIX + ChatColor.RESET + message));
     }
 
     /**
@@ -161,6 +162,8 @@ public class Main extends JavaPlugin {
             config.getStringList("tags.custom.boolean").forEach(tag -> TAGS.put(tag, Boolean.class));
         }
         DEBUG = config.getBoolean("debug", false);
+        PREFIX = ChatColor.translateAlternateColorCodes('&',
+                config.getString("messages.prefix", "[" + plugin.getName() + "] "));
         debug("Debug enable");
         info("Config loaded");
     }

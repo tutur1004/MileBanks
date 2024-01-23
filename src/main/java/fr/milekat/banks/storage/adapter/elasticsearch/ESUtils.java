@@ -5,33 +5,43 @@ import co.elastic.clients.elasticsearch._types.mapping.PropertyBuilders;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 public class ESUtils {
-    public static @NotNull Map<String, Property> getTagsMapping(@NotNull Map<String, Class<?>> tagsFormats) {
+    public static @NotNull Map<String, Property> getMapping(@NotNull Map<String, Class<?>> fields,
+                                                            @NotNull Map<String, Class<?>> tags,
+                                                            @NotNull String tagsFieldName) {
         Map<String, Property> mapping = new HashMap<>();
-        mapping.put("@timestamp", new Property(PropertyBuilders.date().build()));
-        mapping.put("operation", new Property(PropertyBuilders.double_().build()));
-        mapping.put("reason", new Property(PropertyBuilders.text().build()));
-        mapping.put("transactionId", new Property(PropertyBuilders.keyword().ignoreAbove(36).build()));
-        mapping.put("uuid", new Property(PropertyBuilders.keyword().ignoreAbove(36).build()));
-        Map<String, Property> tags = new HashMap<>();
-        tagsFormats.forEach((field, type) -> {
-            if (type.equals(String.class)) {
-                tags.put(field, new Property(PropertyBuilders.keyword().ignoreAbove(256).build()));
-            } else if (type.equals(Integer.class)) {
-                tags.put(field, new Property(PropertyBuilders.integer().build()));
-            } else if (type.equals(Float.class)) {
-                tags.put(field, new Property(PropertyBuilders.keyword().build()));
-            } else if (type.equals(Double.class)) {
-                tags.put(field, new Property(PropertyBuilders.double_().build()));
-            } else if (type.equals(Boolean.class)) {
-                tags.put(field, new Property(PropertyBuilders.boolean_().build()));
-            }
-        });
-        if (!tags.isEmpty()) {
-            mapping.put("tags", new Property(PropertyBuilders.object().properties(tags).build()));
+        fields.forEach((field, type) -> mapping.putAll(getMapping(field, type)));
+        Map<String, Property> tagsMapping = new HashMap<>();
+        tags.forEach((field, type) -> tagsMapping.putAll(getMapping(field, type)));
+        if (!tagsMapping.isEmpty()) {
+            mapping.put(tagsFieldName, new Property(PropertyBuilders.object().properties(tagsMapping).build()));
+        }
+        return mapping;
+    }
+
+    private static @NotNull Map<String, Property> getMapping(@NotNull String field, @NotNull Class<?> type) {
+        Map<String, Property> mapping = new HashMap<>();
+        if (type.equals(String.class)) {
+            mapping.put(field, new Property(PropertyBuilders.keyword().ignoreAbove(256).build()));
+        } else if (type.equals(UUID.class)) {
+            mapping.put(field, new Property(PropertyBuilders.keyword().ignoreAbove(36).build()));
+        } else if (type.equals(Integer.class)) {
+            mapping.put(field, new Property(PropertyBuilders.integer().build()));
+        } else if (type.equals(Float.class)) {
+            mapping.put(field, new Property(PropertyBuilders.keyword().build()));
+        } else if (type.equals(Double.class)) {
+            mapping.put(field, new Property(PropertyBuilders.double_().build()));
+        } else if (type.equals(Boolean.class)) {
+            mapping.put(field, new Property(PropertyBuilders.boolean_().build()));
+        } else if (type.equals(Date.class)) {
+            mapping.put(field, new Property(PropertyBuilders.date().build()));
+        } else {
+            mapping.put(field, new Property(PropertyBuilders.object().build()));
         }
         return mapping;
     }

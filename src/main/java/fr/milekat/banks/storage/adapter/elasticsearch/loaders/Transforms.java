@@ -1,4 +1,4 @@
-package fr.milekat.banks.storage.adapter.elasticsearch;
+package fr.milekat.banks.storage.adapter.elasticsearch.loaders;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
@@ -14,9 +14,9 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-public class ESTransforms {
-    public ESTransforms(@NotNull ElasticsearchClient client, @NotNull String indexTransactions,
-                        @NotNull String indexAccounts, @NotNull String tagName, @NotNull Class<?> tagType) {
+public class Transforms {
+    public Transforms(@NotNull ElasticsearchClient client, @NotNull String indexTransactions,
+                      @NotNull String indexAccounts, @NotNull String tagName, @NotNull Class<?> tagType) {
         String transformId = (indexTransactions + "-" + tagName).toLowerCase(Locale.ROOT);
         // Check if transform is present if not create it
         if (!isTransformExist(client, transformId)) {
