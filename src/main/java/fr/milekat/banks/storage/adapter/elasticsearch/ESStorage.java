@@ -78,8 +78,10 @@ public class ESStorage implements StorageImplementation {
             new Index(connection.getClient(), BANK_INDEX_ACCOUNTS, numberOfReplicas,
                     accounts_fields, new HashMap<>(), "");
             Main.debug("Check transforms...");
-            Main.TAGS.forEach((tagName, tagType) -> new Transforms(connection.getClient(),
-                    BANK_INDEX_TRANSACTIONS, BANK_INDEX_ACCOUNTS, tagName, tagType));
+            for (Map.Entry<String, Class<?>> tag : Main.TAGS.entrySet()) {
+                new Transforms(connection.getClient(), BANK_INDEX_TRANSACTIONS, BANK_INDEX_ACCOUNTS,
+                        Map.of(tag.getKey(), tag.getValue()));
+            }
             Main.debug("Storage is ready.");
             return true;
         } catch (IOException | StorageLoaderException exception) {

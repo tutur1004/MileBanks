@@ -3,7 +3,9 @@ package fr.milekat.banks.storage.adapter.elasticsearch;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
 import co.elastic.clients.elasticsearch._types.mapping.PropertyBuilders;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch.transform.PivotGroupBy;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -44,6 +46,32 @@ public class ESUtils {
             mapping.put(field, new Property(PropertyBuilders.object().build()));
         }
         return mapping;
+    }
+
+    /**
+     * Method to format a field for a PivotGroupBy
+     * @param fieldPath Field path (ex: "tags.player-uuid" for a tag named "player-uuid" in a nested object "tags")
+     * @param type Field type (ex: String for a keyword field)
+     * @param fieldName Field name (ex: "player-uuid" for a tag named "player-uuid" in a nested object "tags")
+     * @return Formatted PivotGroupBy map
+     */
+    public static @NotNull Map<String, PivotGroupBy> getMappingPivotGroup(@NotNull String fieldPath,
+                                                                          @NotNull Class<?> type,
+                                                                          @Nullable String fieldName) {
+        if (fieldName == null) fieldName = fieldPath;
+        Map<String, PivotGroupBy> pivotGroups = new HashMap<>();
+        if (type.equals(String.class)) {
+            pivotGroups.put(fieldName, new PivotGroupBy.Builder().terms(t -> t.field(fieldPath)).build());
+        } else if (type.equals(Integer.class)) {
+            pivotGroups.put(fieldName, new PivotGroupBy.Builder().terms(t -> t.field(fieldPath)).build());
+        } else if (type.equals(Float.class)) {
+            pivotGroups.put(fieldName, new PivotGroupBy.Builder().terms(t -> t.field(fieldPath)).build());
+        } else if (type.equals(Double.class)) {
+            pivotGroups.put(fieldName, new PivotGroupBy.Builder().terms(t -> t.field(fieldPath)).build());
+        } else if (type.equals(Boolean.class)) {
+            pivotGroups.put(fieldName, new PivotGroupBy.Builder().terms(t -> t.field(fieldPath)).build());
+        }
+        return pivotGroups;
     }
 
     @NotNull
