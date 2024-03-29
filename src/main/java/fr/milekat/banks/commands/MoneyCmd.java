@@ -1,9 +1,9 @@
 package fr.milekat.banks.commands;
 
 import fr.milekat.banks.Main;
-import fr.milekat.banks.storage.exceptions.StorageExecuteException;
-import fr.milekat.banks.storage.exceptions.StorageLoaderException;
 import fr.milekat.utils.McTools;
+import fr.milekat.utils.storage.exceptions.StorageExecuteException;
+import fr.milekat.utils.storage.exceptions.StorageLoadException;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -98,7 +98,7 @@ public class MoneyCmd implements TabExecutor {
             } catch (Exception exception) {
                 Main.message(sender, "&cError: " + exception.getLocalizedMessage());
                 Main.message(sender, "&cInvalid command usage, see /" + label + " help for more info.");
-                Main.stack(exception.getStackTrace());
+                Main.getMileLogger().stack(exception.getStackTrace());
             }
         } else if (args.length==1) {
             if (args[0].equalsIgnoreCase("reload")) {
@@ -107,9 +107,9 @@ public class MoneyCmd implements TabExecutor {
                 try {
                     Main.reloadStorage();
                     Main.message(sender, "Plugin reloaded!");
-                } catch (StorageLoaderException e) {
+                } catch (StorageLoadException e) {
                     Main.message(sender, "&cFatal storage error: " + e.getLocalizedMessage());
-                    Main.stack(e.getStackTrace());
+                    Main.getMileLogger().stack(e.getStackTrace());
                     Main.getInstance().onDisable();
                 }
             } else sendHelp(sender, label);

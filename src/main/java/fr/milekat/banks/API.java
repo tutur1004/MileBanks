@@ -2,7 +2,7 @@ package fr.milekat.banks;
 
 import fr.milekat.banks.api.MileBanksIAPI;
 import fr.milekat.banks.api.exceptions.StorageException;
-import fr.milekat.banks.storage.exceptions.StorageExecuteException;
+import fr.milekat.utils.storage.exceptions.StorageExecuteException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

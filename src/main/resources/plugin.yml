@@ -12,7 +12,7 @@ libraries:
   - com.fasterxml.jackson.core:jackson-annotations:2.15.2
   - com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.2
   # Storage
-  - co.elastic.clients:elasticsearch-java:8.12.0
+  - co.elastic.clients:elasticsearch-java:8.13.0
 commands:
   money:
     description: "Money management command"

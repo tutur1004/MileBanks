@@ -1,6 +1,6 @@
 package fr.milekat.banks.storage;
 
-import fr.milekat.banks.storage.exceptions.StorageExecuteException;
+import fr.milekat.utils.storage.exceptions.StorageExecuteException;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
@@ -12,13 +12,7 @@ public interface StorageImplementation extends CacheManager {
      * Check if all storages are loaded
      * @return true if all storages are loaded
      */
-    boolean checkStorages() throws StorageExecuteException;
-
-    /**
-     * Get the implemented (Used) storage type
-     * @return storage type
-     */
-    String getImplementationName();
+    boolean checkStorages();
 
     /**
      * Disconnect from Storage provider

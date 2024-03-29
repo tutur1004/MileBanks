@@ -14,7 +14,13 @@ allprojects {
         maven { url = "https://oss.sonatype.org/content/repositories/snapshots/" }
         maven { url = "https://hub.spigotmc.org/nexus/content/repositories/snapshots/" }
         maven { url = "https://libraries.minecraft.net/" }
-        maven { url = "https://maven.pkg.github.com/tutur1004/MilekatUtils" }
+        maven {
+            url = uri("https://maven.pkg.github.com/tutur1004/MilekatUtils")
+            credentials {
+                username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
+                password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
+            }
+        }
     }
 
     dependencies {
@@ -50,13 +56,11 @@ dependencies {
     implementation project('banks-api')
 
     //  Utils
-    implementation(group: 'fr.milekat', name: 'milekat-utils', version: '1.0.3') {
-        exclude(group: '*')
-    }
+    implementation(group: 'fr.milekat', name: 'milekat-utils', version: '1.1.0')
     compileOnly group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.15.2'
     compileOnly group: 'com.fasterxml.jackson.core', name: 'jackson-annotations', version: '2.15.2'
     compileOnly group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: '2.15.2'
 
     //  Storage clients
-    compileOnly group: 'co.elastic.clients', name: 'elasticsearch-java', version: '8.12.0'
+    compileOnly group: 'co.elastic.clients', name: 'elasticsearch-java', version: '8.13.0'
 }

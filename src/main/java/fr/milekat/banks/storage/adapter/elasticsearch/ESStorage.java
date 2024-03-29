@@ -13,16 +13,19 @@ import fr.milekat.banks.Main;
 import fr.milekat.banks.api.events.MoneyPrepareOperation;
 import fr.milekat.banks.api.events.MoneySavedSuccessfully;
 import fr.milekat.banks.storage.CacheManager;
-import fr.milekat.banks.storage.Storage;
 import fr.milekat.banks.storage.StorageImplementation;
-import fr.milekat.banks.storage.adapter.elasticsearch.loaders.Index;
-import fr.milekat.banks.storage.adapter.elasticsearch.loaders.Transforms;
-import fr.milekat.banks.storage.exceptions.StorageExecuteException;
-import fr.milekat.banks.storage.exceptions.StorageLoaderException;
 import fr.milekat.banks.utils.BankAccount;
 import fr.milekat.utils.Configs;
 import fr.milekat.utils.DateMileKat;
+import fr.milekat.utils.storage.StorageConnection;
+import fr.milekat.utils.storage.adapter.elasticsearch.connetion.ESConnection;
+import fr.milekat.utils.storage.adapter.elasticsearch.features.Index;
+import fr.milekat.utils.storage.adapter.elasticsearch.features.Transforms;
+import fr.milekat.utils.storage.adapter.elasticsearch.utils.Builders;
+import fr.milekat.utils.storage.exceptions.StorageExecuteException;
+import fr.milekat.utils.storage.exceptions.StorageLoadException;
 import org.bukkit.Bukkit;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,7 +33,7 @@ import java.io.IOException;
 import java.util.*;
 
 public class ESStorage implements StorageImplementation {
-    private final ESConnector DB;
+    private final Configs config;
     private final String BANK_INDEX_TRANSACTIONS;
     private final Map<String, Class<?>> transactions_fields = new HashMap<>();
 
@@ -42,10 +45,11 @@ public class ESStorage implements StorageImplementation {
     /*
         Main DB
     */
-    public ESStorage(@NotNull Configs config) throws StorageLoaderException {
+    public ESStorage(@NotNull Configs config) throws StorageLoadException {
+        this.config = config;
         String prefix = config.getString("storage.elasticsearch.prefix", "bank-");
         if (!prefix.matches("[a-z0-9][a-z0-9-]{0,19}")) {
-            throw new StorageLoaderException("Elasticsearch prefix wrong, please only lower cases (a-z), " +
+            throw new StorageLoadException("Elasticsearch prefix wrong, please only lower cases (a-z), " +
                     "digits (0-9) and dashed '-', also you can't start with a '-'.");
         }
         this.BANK_INDEX_TRANSACTIONS = prefix + "transactions";
@@ -58,47 +62,47 @@ public class ESStorage implements StorageImplementation {
         transactions_fields.put("@timestamp", Date.class);
         accounts_fields.put("amount", Integer.class);
         accounts_fields.putAll(Main.TAGS);
-        DB = new ESConnector(config);
-        try (ESConnection connection = DB.getConnection()) {
-            Main.debug(connection.getClient().cluster().health().toString());
+        try (StorageConnection connection = getConnection()) {
+            Main.getMileLogger().debug(connection.getEsClient().cluster().health().toString());
             saveOperation();
         } catch (IOException exception) {
-            throw new StorageLoaderException("Error while trying to load ElasticSearch cluster");
+            throw new StorageLoadException("Error while trying to load ElasticSearch cluster");
         }
+    }
+
+    @Contract(" -> new")
+    private @NotNull ESConnection getConnection() {
+        return new ESConnection(config, Main.getMileLogger());
     }
 
     @Override
     public boolean checkStorages() {
-        Main.debug("Check if storage is ready...");
+        Main.getMileLogger().debug("Check if storage is ready...");
         String TAGS_FIELD = "tags";
-        try (ESConnection connection = DB.getConnection()) {
-            Main.debug("Check indices...");
-            new Index(connection.getClient(), BANK_INDEX_TRANSACTIONS, numberOfReplicas,
+        try (StorageConnection connection = getConnection()){
+            Main.getMileLogger().debug("Check indices...");
+            new Index(connection.getEsClient(), BANK_INDEX_TRANSACTIONS, numberOfReplicas,
                     transactions_fields, Main.TAGS, TAGS_FIELD);
-            new Index(connection.getClient(), BANK_INDEX_ACCOUNTS, numberOfReplicas,
+            new Index(connection.getEsClient(), BANK_INDEX_ACCOUNTS, numberOfReplicas,
                     accounts_fields, new HashMap<>(), "");
-            Main.debug("Check transforms...");
+            Main.getMileLogger().debug("Check transforms...");
             for (Map.Entry<String, Class<?>> tag : Main.TAGS.entrySet()) {
-                new Transforms(connection.getClient(), BANK_INDEX_TRANSACTIONS, BANK_INDEX_ACCOUNTS,
+                new Transforms(connection.getEsClient(), BANK_INDEX_TRANSACTIONS, BANK_INDEX_ACCOUNTS,
                         Map.of(tag.getKey(), tag.getValue()));
             }
-            Main.debug("Storage is ready.");
+            Main.getMileLogger().debug("Storage is ready.");
             return true;
-        } catch (IOException | StorageLoaderException exception) {
-            Main.warning("ElasticSearch load storage error.");
-            Main.stack(exception.getStackTrace());
+        } catch (StorageLoadException exception) {
+            Main.getMileLogger().warning("ElasticSearch load storage error.");
+            Main.getMileLogger().stack(exception.getStackTrace());
         }
         return false;
     }
 
     @Override
-    public String getImplementationName() {
-        return null;
-    }
-
-    @Override
     public void disconnect() {
-        Main.debug("ElasticSearch automatically close connections after execution, using try-with-resources.");
+        Main.getMileLogger().debug("ElasticSearch automatically close connections after execution, " +
+                "using try-with-resources.");
     }
 
     /*
@@ -107,22 +111,22 @@ public class ESStorage implements StorageImplementation {
 
     @Override
     public int getMoneyFromTag(@NotNull String tagName, @NotNull Object tagValue) throws StorageExecuteException {
-        Main.debug("[ES-Sync] getMoneyFromTag - search money with tag '" + tagName + "=" + tagValue + "'.");
-        BoolQuery.Builder boolQuery = ESUtils.getBuilder(tagName, tagValue);
+        Main.getMileLogger().debug("[ES-Sync] getMoneyFromTag - search money with tag '" + tagName + "=" + tagValue + "'.");
+        BoolQuery.Builder boolQuery = Builders.getBuilder(tagName, tagValue);
         SearchRequest request = new SearchRequest.Builder()
                         .index(BANK_INDEX_ACCOUNTS)
                         .query(q -> q.bool(boolQuery.build()))
                         .size(1)
                         .build();
         int balance = fetchMoney(request);
-        CacheManager.addCacheAccount(Storage.BANK_ACCOUNTS_CACHE, new BankAccount(tagName, tagValue, balance));
+        CacheManager.addCacheAccount(Main.BANK_ACCOUNTS_CACHE, new BankAccount(tagName, tagValue, balance));
         return balance;
     }
 
     private int fetchMoney(@NotNull SearchRequest request) throws StorageExecuteException {
-        try (ESConnection connection = DB.getConnection()) {
+        try (StorageConnection connection = getConnection()) {
             try {
-                SearchResponse<ObjectNode> response = connection.getClient().search(request, ObjectNode.class);
+                SearchResponse<ObjectNode> response = connection.getEsClient().search(request, ObjectNode.class);
                 Optional<Hit<ObjectNode>> money = response.hits().hits().stream().findFirst();
                 if (money.isPresent() && money.get().source() != null && money.get().source().has("amount")) {
                     return money.get().source().get("amount").asInt();
@@ -131,8 +135,6 @@ public class ESStorage implements StorageImplementation {
             } catch (ElasticsearchException | IOException exception) {
                 throw new StorageExecuteException(exception, "Error while executing search request");
             }
-        } catch (IOException exception) {
-            throw new StorageExecuteException(exception, "Elasticsearch client init error.");
         }
     }
 
@@ -185,22 +187,19 @@ public class ESStorage implements StorageImplementation {
             Map<UUID, BulkOperation> processing = new HashMap<>(moneyOperations);
             moneyOperations.clear();
             if (!processing.isEmpty()) {
-                try (ESConnection connection = DB.getConnection()) {
+                try (StorageConnection connection = getConnection()) {
                     try {
-                        connection.getClient().bulk(
+                        connection.getEsClient().bulk(
                                 new BulkRequest.Builder()
                                         .operations(processing.values().stream().toList())
                                         .build()
                         );
-                        Main.debug("'" + processing.size() + "' money operation(s) saved.");
+                        Main.getMileLogger().debug("'" + processing.size() + "' money operation(s) saved.");
                     } catch (ElasticsearchException | IOException exception) {
                         moneyOperations.putAll(processing);
-                        Main.warning("Error while trying to save money operation(s).");
-                        Main.stack(exception.getStackTrace());
+                        Main.getMileLogger().warning("Error while trying to save money operation(s).");
+                        Main.getMileLogger().stack(exception.getStackTrace());
                     }
-                } catch (IOException exception) {
-                    Main.warning("ElasticSearch client error.");
-                    Main.stack(exception.getStackTrace());
                 }
             }
         }, 50, 20);
