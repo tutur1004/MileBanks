@@ -36,9 +36,9 @@ messages:
         remove: "remove <player> <amount> [reason]&r: &eRemove money from player's balance(s)"
         get: "get <player>&r: &eGet all balances of a player and their values"
         tags:
-          add: "tags add <tag-name> <tag-value> add <amount> [reason]&r: &eAdd money to a tag balance"
-          remove: "tags remove <tag-name> <tag-value> remove <amount> [reason]&r: &eRemove money from a tag balance"
-          set: "tags set <tag-name> <tag-value> set <amount> [reason]&r: &eSet a tag balance"
+          add: "tags add <tag-name> <tag-value> <amount> [reason]&r: &eAdd money to a tag balance"
+          remove: "tags remove <tag-name> <tag-value> <amount> [reason]&r: &eRemove money from a tag balance"
+          set: "tags set <tag-name> <tag-value> <amount> [reason]&r: &eSet a tag balance"
           get: "tags get <tag-name> <tag-value>&r: &eGet a tag balance"
         reload: "reload&r: &eReload the plugin"
         help: "help&r: &eShow this help message"
