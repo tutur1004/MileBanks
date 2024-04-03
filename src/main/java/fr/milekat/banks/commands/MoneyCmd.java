@@ -1,9 +1,9 @@
 package fr.milekat.banks.commands;
 
 import fr.milekat.banks.Main;
-import fr.milekat.banks.storage.exceptions.StorageExecuteException;
-import fr.milekat.banks.storage.exceptions.StorageLoaderException;
 import fr.milekat.utils.McTools;
+import fr.milekat.utils.storage.exceptions.StorageExecuteException;
+import fr.milekat.utils.storage.exceptions.StorageLoadException;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -36,13 +36,13 @@ public class MoneyCmd implements TabExecutor {
                     }
                     tags = Main.PLAYER_TAGS.get(player.getUniqueId());
                 } else if (args.length >= 4) {
-                    if (Main.TAGS.containsKey(args[1])) {
-                        tags.put(args[1], args[2]);
+                    if (Main.TAGS.containsKey(args[2])) {
+                        tags.put(args[2], args[3]);
                     } else {
-                        Main.message(sender, "&cTag '" + args[1] + "' doesn't exist.");
+                        Main.message(sender, "&cTag '" + args[2] + "' doesn't exist.");
                         return true;
                     }
-                    moneyAction = MoneyAction.valueOf(args[3].toUpperCase(Locale.ROOT));
+                    moneyAction = MoneyAction.valueOf(args[1].toUpperCase(Locale.ROOT));
                 } else return sendHelp(sender, label);
                 int amount = 0;
                 String reason = "Command";
@@ -51,7 +51,7 @@ public class MoneyCmd implements TabExecutor {
                     if (args.length >= 4) {
                         reason = String.join(" ", Arrays.copyOfRange(args, 3, args.length));
                     }
-                } else if (args.length >= 4) {
+                } else if (args.length >= 5) {
                     amount = Integer.parseInt(args[4]);
                     if (args.length >= 6) {
                         reason = String.join(" ", Arrays.copyOfRange(args, 5, args.length));
@@ -78,7 +78,7 @@ public class MoneyCmd implements TabExecutor {
                         Main.message(sender, "Added " + amount + " to balance.");
                     }
                     case REMOVE -> {
-                        Main.getStorage().addMoneyToTags(tags, amount, reason);
+                        Main.getStorage().removeMoneyToTags(tags, amount, reason);
                         Main.message(sender, "Removed " + amount + " from balance.");
                     }
                     case SET -> {
@@ -98,7 +98,7 @@ public class MoneyCmd implements TabExecutor {
             } catch (Exception exception) {
                 Main.message(sender, "&cError: " + exception.getLocalizedMessage());
                 Main.message(sender, "&cInvalid command usage, see /" + label + " help for more info.");
-                Main.stack(exception.getStackTrace());
+                Main.getMileLogger().stack(exception.getStackTrace());
             }
         } else if (args.length==1) {
             if (args[0].equalsIgnoreCase("reload")) {
@@ -107,9 +107,9 @@ public class MoneyCmd implements TabExecutor {
                 try {
                     Main.reloadStorage();
                     Main.message(sender, "Plugin reloaded!");
-                } catch (StorageLoaderException e) {
+                } catch (StorageLoadException e) {
                     Main.message(sender, "&cFatal storage error: " + e.getLocalizedMessage());
-                    Main.stack(e.getStackTrace());
+                    Main.getMileLogger().stack(e.getStackTrace());
                     Main.getInstance().onDisable();
                 }
             } else sendHelp(sender, label);
@@ -132,15 +132,15 @@ public class MoneyCmd implements TabExecutor {
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
                 "messages.command.money.help.tags.add",
-                "tags add <tag-name> <tag-value> add <amount> [reason]&r: &eAdd money to a tag balance"
+                "tags add <tag-name> <tag-value> <amount> [reason]&r: &eAdd money to a tag balance"
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
                 "messages.command.money.help.tags.remove",
-                "tags remove <tag-name> <tag-value> remove <amount> [reason]&r: &eRemove money from a tag balance"
+                "tags remove <tag-name> <tag-value> <amount> [reason]&r: &eRemove money from a tag balance"
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
                 "messages.command.money.help.tags.set",
-                "tags set <tag-name> <tag-value> set <amount> [reason]&r: &eSet money to a tag balance"
+                "tags set <tag-name> <tag-value> <amount> [reason]&r: &eSet money to a tag balance"
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
                 "messages.command.money.help.tags.get",
@@ -169,14 +169,14 @@ public class MoneyCmd implements TabExecutor {
                 return McTools.getTabArgs(args[1], Bukkit.getOnlinePlayers().stream().map(Player::getName)
                         .collect(Collectors.toList()));
             } else if (args[0].equalsIgnoreCase("tags")) {
-                return McTools.getTabArgs(args[1], new ArrayList<>(Main.TAGS.keySet()));
+                return McTools.getTabArgs(args[1], Arrays.asList("add", "remove", "set", "get"));
             }
-        } else if (args.length == 4) {
+        } else if (args.length == 3) {
             if (args[0].equalsIgnoreCase("tags")) {
-                return McTools.getTabArgs(args[3], Arrays.asList("add", "remove", "set", "get"));
+                return McTools.getTabArgs(args[2], new ArrayList<>(Main.TAGS.keySet()));
             }
         }
-        return List.of("");
+        return null;
     }
 
     enum MoneyAction {
