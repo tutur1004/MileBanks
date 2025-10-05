@@ -62,7 +62,6 @@ public class Main extends JavaPlugin {
         }
         //  Load API
         MileBanksAPI.LOADED_API = new API();
-        MileBanksAPI.API_READY = true;
         //  Load plugin listeners
         if (config.getBoolean("tags.enable_builtin_tags", true)) {
             plugin.getServer().getPluginManager().registerEvents(new DefaultTags(), this);
