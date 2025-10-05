@@ -46,7 +46,7 @@ shadowJar {
 }
 
 dependencies {
-    implementation project('banks-api')
+    implementation project('mile-banks-api')
 
     //  Utils
     compileOnly group: 'fr.milekat', name: 'milekat-utils', version: '1.6.0'
