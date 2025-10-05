@@ -89,6 +89,7 @@ public class ESStorage implements StorageImplementation {
             Main.getMileLogger().debug(esClient.cluster().health().toString());
             startSaveOperation();
         } catch (IOException exception) {
+            Main.getMileLogger().stack(exception.getStackTrace());
             throw new StorageLoadException("Error while trying to load ElasticSearch cluster");
         }
     }
