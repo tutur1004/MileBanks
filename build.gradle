@@ -7,20 +7,13 @@ allprojects {
     apply plugin: 'java'
 
     group = 'fr.milekat'
-    version = '1.3.0'
+    version = '1.3.1-SNAPSHOT'
 
     repositories {
         mavenCentral()
         maven { url = "https://oss.sonatype.org/content/repositories/snapshots/" }
         maven { url = "https://hub.spigotmc.org/nexus/content/repositories/snapshots/" }
         maven { url = "https://libraries.minecraft.net/" }
-        maven {
-            url = uri("https://maven.pkg.github.com/tutur1004/MilekatUtils")
-            credentials {
-                username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
-                password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
-            }
-        }
     }
 
     dependencies {
@@ -28,7 +21,7 @@ allprojects {
         compileOnly group: 'org.jetbrains', name: 'annotations', version: '24.0.1'
 
         //  Minecraft
-        compileOnly group: 'org.spigotmc', name: 'spigot-api', version: '1.20.4-R0.1-SNAPSHOT'
+        compileOnly group: 'org.spigotmc', name: 'spigot-api', version: '1.21-R0.1-SNAPSHOT'
     }
 
     processResources {
@@ -56,11 +49,10 @@ dependencies {
     implementation project('banks-api')
 
     //  Utils
-    implementation(group: 'fr.milekat', name: 'milekat-utils', version: '1.1.0')
-    compileOnly group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.15.2'
-    compileOnly group: 'com.fasterxml.jackson.core', name: 'jackson-annotations', version: '2.15.2'
-    compileOnly group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: '2.15.2'
+    compileOnly group: 'fr.milekat', name: 'milekat-utils', version: '1.6.0'
+    compileOnly group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.20.0'
+    compileOnly group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: '2.20.0'
 
     //  Storage clients
-    compileOnly group: 'co.elastic.clients', name: 'elasticsearch-java', version: '8.13.0'
+    compileOnly group: 'co.elastic.clients', name: 'elasticsearch-java', version: '9.1.4'
 }
