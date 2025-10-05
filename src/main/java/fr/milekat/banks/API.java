@@ -89,9 +89,6 @@ public class API implements MileBanksIAPI {
 
     @Override
     public void setPlayerTags(@NotNull UUID uuid, @NotNull Map<String, Object> tags) throws IllegalArgumentException {
-        if (Main.PLAYER_TAGS.containsKey(uuid)) {
-            throw new IllegalArgumentException("Missing required tags ! Required: " + Main.PLAYER_TAGS.get(uuid));
-        }
         Main.PLAYER_TAGS.put(uuid, tags);
     }
 }
