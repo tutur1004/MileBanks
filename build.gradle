@@ -50,8 +50,8 @@ dependencies {
 
     //  Utils
     compileOnly group: 'fr.milekat', name: 'milekat-utils', version: '1.6.0'
-    compileOnly group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.20.0'
-    compileOnly group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: '2.20.0'
+    compileOnly group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.18.3'
+    compileOnly group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: '2.18.3'
 
     //  Storage clients
     compileOnly group: 'co.elastic.clients', name: 'elasticsearch-java', version: '9.1.4'

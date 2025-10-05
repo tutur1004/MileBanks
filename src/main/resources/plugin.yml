@@ -9,8 +9,8 @@ website: https://github.com/tutur1004/MileBanks
 libraries:
   # Utils
   - fr.milekat:milekat-utils:1.6.0
-  - com.fasterxml.jackson.core:jackson-databind:2.20.0
-  - com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.20.0
+  - com.fasterxml.jackson.core:jackson-databind:2.18.3
+  - com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.3
   # Storage
   - co.elastic.clients:elasticsearch-java:9.1.4
 commands:
