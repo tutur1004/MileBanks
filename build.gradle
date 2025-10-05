@@ -49,7 +49,7 @@ dependencies {
     implementation project('mile-banks-api')
 
     //  Utils
-    compileOnly group: 'fr.milekat', name: 'milekat-utils', version: '1.6.0'
+    compileOnly group: 'fr.milekat', name: 'milekat-utils', version: '1.7.0'
     compileOnly group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.18.3'
     compileOnly group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: '2.18.3'
 
