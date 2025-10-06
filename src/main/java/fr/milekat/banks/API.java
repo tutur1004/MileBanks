@@ -1,5 +1,6 @@
 package fr.milekat.banks;
 
+import fr.milekat.banks.api.MileBanksAPI;
 import fr.milekat.banks.api.MileBanksIAPI;
 import fr.milekat.banks.api.exceptions.StorageException;
 import fr.milekat.utils.storage.exceptions.StorageExecuteException;
@@ -12,6 +13,11 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class API implements MileBanksIAPI {
+
+    public API() {
+        MileBanksAPI.API_READY = true;
+        Main.getMileLogger().info("API is ready !");
+    }
 
     @Override
     public boolean isDebug() {
@@ -83,9 +89,6 @@ public class API implements MileBanksIAPI {
 
     @Override
     public void setPlayerTags(@NotNull UUID uuid, @NotNull Map<String, Object> tags) throws IllegalArgumentException {
-        if (Main.PLAYER_TAGS.containsKey(uuid)) {
-            throw new IllegalArgumentException("Missing required tags ! Required: " + Main.PLAYER_TAGS.get(uuid));
-        }
         Main.PLAYER_TAGS.put(uuid, tags);
     }
 }

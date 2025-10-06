@@ -18,6 +18,8 @@ storage:
     password: "pass"
     # Number of indices shard replications, do not modify it if you don't know what you are doing !
     replicas: 0
+    # Delay between 2 saves to the database (in ticks, 20 ticks = 1 second)
+    save-interval-ticks: 20
   cache:
     # Enable or disable cache accounts (Recommended)
     enabled: true

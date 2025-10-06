@@ -1,0 +1,74 @@
+plugins {
+    id 'java'
+    id 'maven-publish'
+    id 'signing'
+}
+
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+// Force character encoding
+tasks.withType(Javadoc).configureEach {
+    options.encoding = 'UTF-8'
+    options.tags = [ "apiNote", "implNote", "implSpec" ]
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            artifactId = 'mile-banks-api'
+            from components.java
+
+            pom {
+                name = 'MileBanksAPI'
+                description = 'API for MileBanks plugin'
+                url = 'https://github.com/tutur1004/MileBanks'
+
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://opensource.org/licenses/MIT'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = 'milekat'
+                        name = 'arthur'
+                        email = 'arthur@milekat.fr'
+                    }
+                }
+
+                scm {
+                    connection = 'scm:git:git://github.com/tutur1004/MileBanks.git'
+                    developerConnection = 'scm:git:ssh://github.com/tutur1004/MileBanks.git'
+                    url = 'https://github.com/tutur1004/MileBanks'
+                }
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/${githubOwner}/${repository}")
+            credentials {
+                username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
+                password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
+            }
+        }
+        maven {
+            name = "StagingDeploy"
+            url = layout.buildDirectory.dir('staging-deploy')
+        }
+    }
+}
+
+signing {
+    // Only apply signing when it's not a snapshot version
+    if (!version.endsWith('SNAPSHOT')) {
+        sign publishing.publications
+    }
+}
