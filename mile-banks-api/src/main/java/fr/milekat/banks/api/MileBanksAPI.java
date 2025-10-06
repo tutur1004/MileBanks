@@ -5,9 +5,22 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The MileBanksAPI class provides access to the banks API.
+ * Main entry point for accessing the MileBanks API.
+ * <p>
+ * This class serves as a facade to retrieve the banks API instance and check its availability.
+ * The API must be initialized before use, otherwise an {@link ApiUnavailable} exception will be thrown.
+ * </p>
  */
 public class MileBanksAPI {
+    /**
+     * Default constructor.
+     * <p>
+     * This constructor is provided for instantiation purposes, though typically
+     * this class is used through its static methods.
+     * </p>
+     */
+    public MileBanksAPI() {}
+
     /**
      * Indicates whether the API is ready for use.
      */
