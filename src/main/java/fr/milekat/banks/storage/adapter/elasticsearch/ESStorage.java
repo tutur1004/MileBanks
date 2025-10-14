@@ -80,7 +80,6 @@ public class ESStorage implements StorageImplementation {
         transactions_fields.put("reason", String.class);
         transactions_fields.put("transactionId", UUID.class);
         transactions_fields.put("@timestamp", Date.class);
-        transactions_fields.putAll(Main.TAGS);
 
         accounts_fields.put("amount", Integer.class);
         accounts_fields.putAll(Main.TAGS);
