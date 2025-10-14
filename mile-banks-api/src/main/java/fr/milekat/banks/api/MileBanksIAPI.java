@@ -219,7 +219,12 @@ public interface MileBanksIAPI {
      */
     @Nullable
     Map<String, Object> getPlayerTags(@NotNull UUID uuid);
-
+    /**
+     * Removes the tags associated with a player identified by UUID.
+     *
+     * @param uuid The UUID of the player.
+     */
+    void removePlayerTags(@NotNull UUID uuid);
     /**
      * Sets the tags associated with a player identified by UUID.
      *

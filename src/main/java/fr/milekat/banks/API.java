@@ -88,6 +88,11 @@ public class API implements MileBanksIAPI {
     }
 
     @Override
+    public void removePlayerTags(@NotNull UUID uuid) {
+        Main.PLAYER_TAGS.remove(uuid);
+    }
+
+    @Override
     public void setPlayerTags(@NotNull UUID uuid, @NotNull Map<String, Object> tags) throws IllegalArgumentException {
         Main.PLAYER_TAGS.put(uuid, tags);
     }
