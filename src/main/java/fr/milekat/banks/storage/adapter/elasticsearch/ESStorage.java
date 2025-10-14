@@ -76,11 +76,11 @@ public class ESStorage implements StorageImplementation {
         this.numberOfReplicas = config.getString("storage.elasticsearch.replicas", "0");
         this.SAVE_INTERVAL_TICKS = config.getLong("storage.elasticsearch.save-interval-ticks", 20L);
 
-        transactions_fields.put("uuid", UUID.class);
         transactions_fields.put("operation", Double.class);
         transactions_fields.put("reason", String.class);
         transactions_fields.put("transactionId", UUID.class);
         transactions_fields.put("@timestamp", Date.class);
+        transactions_fields.putAll(Main.TAGS);
 
         accounts_fields.put("amount", Integer.class);
         accounts_fields.putAll(Main.TAGS);
