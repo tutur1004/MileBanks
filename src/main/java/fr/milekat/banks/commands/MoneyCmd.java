@@ -88,7 +88,8 @@ public class MoneyCmd implements TabExecutor {
                         }
                         String tagName = tags.keySet().iterator().next();
                         Object tagValue = tags.values().iterator().next();
-                        Main.getStorage().setMoneyToTag(tagName, tagValue, amount, reason);
+                        Main.getStorage().resetMoneyToTag(tagName, tagValue, reason);
+                        Main.getStorage().addMoneyToTags(tags, amount, reason);
                         Main.message(sender, "Set balance to " + amount + ".");
                     }
                 }

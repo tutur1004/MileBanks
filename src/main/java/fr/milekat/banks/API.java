@@ -72,10 +72,10 @@ public class API implements MileBanksIAPI {
     }
 
     @Override
-    public UUID setMoneyByTag(@NotNull String tagName, @NotNull Object tagValue, int amount,
-                               @Nullable String reason) throws StorageException {
+    public UUID resetMoneyByTag(@NotNull String tagName, @NotNull Object tagValue,
+                                @Nullable String reason) throws StorageException {
         try {
-            return Main.getStorage().setMoneyToTag(tagName, tagValue, amount, Objects.requireNonNullElse(reason,
+            return Main.getStorage().resetMoneyToTag(tagName, tagValue, Objects.requireNonNullElse(reason,
                     "No reason provided, using API"));
         } catch (StorageExecuteException exception) {
             throw new StorageException(exception, exception.getMessage());

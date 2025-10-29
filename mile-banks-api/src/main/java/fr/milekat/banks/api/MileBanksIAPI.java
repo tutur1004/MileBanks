@@ -181,13 +181,12 @@ public interface MileBanksIAPI {
      *
      * @param tagName    The name of the tag.
      * @param tagValue  The value of the tag.
-     * @param amount The new amount of money.
      * @param reason Operation reason (Or an operation description).
      * @return Transaction id.
      * @throws StorageException if there is an error while updating the storage.
      */
-    UUID setMoneyByTag(@NotNull String tagName, @NotNull Object tagValue,
-                       int amount, @Nullable String reason) throws StorageException;
+    UUID resetMoneyByTag(@NotNull String tagName, @NotNull Object tagValue,
+                         @Nullable String reason) throws StorageException;
     /**
      * Sets the amount of money for a specific tag.
      *
@@ -198,13 +197,13 @@ public interface MileBanksIAPI {
      * @param reason Operation reason (Or an operation description).
      * @return Transaction id.
      * @throws StorageException if there is an error while updating the storage.
-     * @deprecated Use {@link #setMoneyByTag(String, Object, int, String)} or
-     * {@link #setMoneyByTag(String, Object, int, String)} instead.
+     * @deprecated Use {@link #resetMoneyByTag(String, Object, String)} or
+     * {@link #resetMoneyByTag(String, Object, String)} instead.
      */
     @Deprecated
-    default UUID setMoneyByTag(@NotNull UUID player, @NotNull String tagName, @NotNull Object tagValue,
-                               int amount, @Nullable String reason) throws StorageException {
-        return setMoneyByTag(tagName, tagValue, amount, reason);
+    default UUID resetMoneyByTag(@NotNull UUID player, @NotNull String tagName, @NotNull Object tagValue,
+                                 int amount, @Nullable String reason) throws StorageException {
+        return resetMoneyByTag(tagName, tagValue, reason);
     }
 
     /*

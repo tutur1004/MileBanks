@@ -2,7 +2,7 @@ package fr.milekat.banks.storage.adapter.elasticsearch;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
-import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
@@ -47,6 +47,7 @@ public class ESStorage implements StorageImplementation {
 
     // Indexes settings
     private final String BANK_INDEX_TRANSACTIONS;
+    private final String BANK_INDEX_TRANSACTIONS_ARCHIVED;
     private final Map<String, Class<?>> transactions_fields = new HashMap<>();
     private final String BANK_INDEX_ACCOUNTS;
     private final Map<String, Class<?>> accounts_fields = new HashMap<>();
@@ -72,6 +73,7 @@ public class ESStorage implements StorageImplementation {
                     "digits (0-9) and dashes '-', also you can't start with a '-'.");
         }
         this.BANK_INDEX_TRANSACTIONS = prefix + "transactions";
+        this.BANK_INDEX_TRANSACTIONS_ARCHIVED = BANK_INDEX_TRANSACTIONS + "-archived";
         this.BANK_INDEX_ACCOUNTS = prefix + "accounts";
         this.numberOfReplicas = config.getString("storage.elasticsearch.replicas", "0");
         this.SAVE_INTERVAL_TICKS = config.getLong("storage.elasticsearch.save-interval-ticks", 20L);
@@ -110,6 +112,8 @@ public class ESStorage implements StorageImplementation {
         try (ElasticsearchClient esClient = connection.getEsClient(getMapper())) {
             Main.getMileLogger().debug("Check indices...");
             new Index(esClient, BANK_INDEX_TRANSACTIONS, numberOfReplicas,
+                    transactions_fields, Main.TAGS, TAGS_FIELD);
+            new Index(esClient, BANK_INDEX_TRANSACTIONS_ARCHIVED, numberOfReplicas,
                     transactions_fields, Main.TAGS, TAGS_FIELD);
             new Index(esClient, BANK_INDEX_ACCOUNTS, numberOfReplicas,
                     accounts_fields, new HashMap<>(), "");
@@ -152,10 +156,10 @@ public class ESStorage implements StorageImplementation {
     @Override
     public int getMoneyFromTag(@NotNull String tagName, @NotNull Object tagValue) throws StorageExecuteException {
         Main.getMileLogger().debug("[ES-Sync] getMoneyFromTag - search money with tag '" + tagName + "=" + tagValue + "'.");
-        BoolQuery.Builder boolQuery = Builders.getBuilder(tagName, tagValue);
+        TermQuery.Builder termQuery = Builders.getTermBuilder(tagName, tagValue);
         SearchRequest request = new SearchRequest.Builder()
                 .index(BANK_INDEX_ACCOUNTS)
-                .query(q -> q.bool(boolQuery.build()))
+                .query(q -> q.term(termQuery.build()))
                 .size(1)
                 .build();
         int balance = fetchMoney(request);
@@ -186,10 +190,26 @@ public class ESStorage implements StorageImplementation {
     }
 
     @Override
-    public @NotNull UUID setMoneyToTag(@NotNull String tagName, @NotNull Object tagValue,
-                                       int amount, @Nullable String reason) throws StorageExecuteException {
-        int calculatedAmount = amount - getMoneyFromTag(tagName, tagValue);
-        return addOperation(Map.of(tagName, tagValue), calculatedAmount, reason);
+    public @NotNull UUID resetMoneyToTag(@NotNull String tagName, @NotNull Object tagValue,
+                                         @Nullable String reason) throws StorageExecuteException {
+        // Reindex all matching transactions to archived index
+        Main.getMileLogger().debug("[ES-Sync] resetMoneyToTag - reset money for tag '" + tagName + "=" + tagValue + "'.");
+        TermQuery.Builder termQuery = Builders.getTermBuilder(tagName, tagValue);
+        try (ElasticsearchClient esClient = connection.getEsClient(getMapper())) {
+            flushMoneyOperations();
+            esClient.reindex(r -> r
+                    .source(s -> s
+                            .index(BANK_INDEX_TRANSACTIONS)
+                            .query(q -> q.term(termQuery.build()))
+                    )
+                    .dest(d -> d
+                            .index(BANK_INDEX_TRANSACTIONS_ARCHIVED)
+                    )
+            );
+            return addOperation(Map.of(tagName, tagValue), 0, reason);
+        } catch (ElasticsearchException | IOException exception) {
+            throw new StorageExecuteException(exception, "Error while trying to reindex transactions");
+        }
     }
 
     private @NotNull UUID addOperation(@NotNull Map<String, Object> tags, int amount,

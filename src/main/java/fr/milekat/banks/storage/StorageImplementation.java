@@ -33,6 +33,6 @@ public interface StorageImplementation extends CacheManager {
         return addMoneyToTags(tags, amount, reason);
     }
 
-    UUID setMoneyToTag(@NotNull String tagName, @NotNull Object tagValue, int amount, String reason)
+    UUID resetMoneyToTag(@NotNull String tagName, @NotNull Object tagValue, String reason)
             throws StorageExecuteException;
 }
