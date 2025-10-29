@@ -38,14 +38,15 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ESStorage implements StorageImplementation {
-    // Elastic settings
+    // Elasticsearch connection
     private final ESConnection connection;
     private final String numberOfReplicas;
 
-    // Indexes settings
+    // Index settings
     private final String BANK_INDEX_TRANSACTIONS;
     private final Map<String, Class<?>> transactions_fields = new HashMap<>();
     private final String BANK_INDEX_ACCOUNTS;
@@ -53,17 +54,29 @@ public class ESStorage implements StorageImplementation {
 
     // Thread-safe map for concurrent access
     private final Map<UUID, BulkOperation> moneyOperations = new ConcurrentHashMap<>();
-    private final ReentrantReadWriteLock operationLock = new ReentrantReadWriteLock();
+    // No lock needed - ConcurrentHashMap handles concurrency
 
-    // Scheduler task reference for cleanup
+    // Scheduler tasks
     private BukkitTask saveTask;
+    private BukkitTask healthCheckTask;
 
-    // Save interval in ticks
+    // Connection health monitoring
+    private volatile boolean isConnected = true;
+    private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
+    private final AtomicBoolean isReconnecting = new AtomicBoolean(false);
+    private static final int MAX_CONSECUTIVE_FAILURES = 3;
+    private static final int MAX_RETRY_ATTEMPTS = 3;
+
+    // Memory limit
+    private final int MAX_PENDING_OPERATIONS;
+
+    // Intervals in ticks
     private final long SAVE_INTERVAL_TICKS;
+    private static final long HEALTH_CHECK_INTERVAL = 100L; // 5 seconds
 
-    /*
-        Main DB
-    */
+    // Singleton mapper to avoid recreating client
+    private final JacksonJsonpMapper mapper;
+
     public ESStorage(@NotNull ESConnection connection, @NotNull Configs config) throws StorageLoadException {
         this.connection = connection;
         String prefix = config.getString("storage.elasticsearch.prefix", "bank-");
@@ -75,6 +88,10 @@ public class ESStorage implements StorageImplementation {
         this.BANK_INDEX_ACCOUNTS = prefix + "accounts";
         this.numberOfReplicas = config.getString("storage.elasticsearch.replicas", "0");
         this.SAVE_INTERVAL_TICKS = config.getLong("storage.elasticsearch.save-interval-ticks", 20L);
+        this.MAX_PENDING_OPERATIONS = config.getInt("storage.elasticsearch.max-pending-operations", 10000);
+
+        // Initialize singleton mapper
+        this.mapper = createMapper();
 
         transactions_fields.put("operation", Double.class);
         transactions_fields.put("reason", String.class);
@@ -84,8 +101,11 @@ public class ESStorage implements StorageImplementation {
         accounts_fields.put("amount", Integer.class);
         accounts_fields.putAll(Main.TAGS);
 
-        try (ElasticsearchClient esClient = connection.getEsClient(getMapper())) {
+        try {
+            ElasticsearchClient esClient = connection.getEsClient(mapper);
             Main.getMileLogger().debug(esClient.cluster().health().toString());
+
+            startHealthCheck();
             startSaveOperation();
         } catch (IOException exception) {
             Main.getMileLogger().stack(exception.getStackTrace());
@@ -94,20 +114,21 @@ public class ESStorage implements StorageImplementation {
     }
 
     @Contract(" -> new")
-    private @NotNull JacksonJsonpMapper getMapper() {
-        JacksonJsonpMapper mapper = new JacksonJsonpMapper();
+    private @NotNull JacksonJsonpMapper createMapper() {
+        JacksonJsonpMapper newMapper = new JacksonJsonpMapper();
         SimpleModule module = new SimpleModule();
         module.addSerializer(Date.class, new DateSerializer());
         module.addDeserializer(Date.class, new DateDeserializer());
-        mapper.objectMapper().registerModule(module);
-        return mapper;
+        newMapper.objectMapper().registerModule(module);
+        return newMapper;
     }
 
     @Override
     public boolean checkStorages() {
         Main.getMileLogger().debug("Check if storage is ready...");
         String TAGS_FIELD = "tags";
-        try (ElasticsearchClient esClient = connection.getEsClient(getMapper())) {
+        try {
+            ElasticsearchClient esClient = connection.getEsClient(mapper);
             Main.getMileLogger().debug("Check indices...");
             new Index(esClient, BANK_INDEX_TRANSACTIONS, numberOfReplicas,
                     transactions_fields, Main.TAGS, TAGS_FIELD);
@@ -122,7 +143,7 @@ public class ESStorage implements StorageImplementation {
             }
             Main.getMileLogger().debug("Storage is ready.");
             return true;
-        } catch (StorageLoadException | IOException exception) {
+        } catch (StorageLoadException exception) {
             Main.getMileLogger().warning("ElasticSearch load storage error.");
             Main.getMileLogger().stack(exception.getStackTrace());
         }
@@ -133,21 +154,83 @@ public class ESStorage implements StorageImplementation {
     public void disconnect() {
         Main.getMileLogger().info("Disconnecting from storage...");
 
-        // Cancel scheduled task
+        // Cancel scheduled tasks
+        if (healthCheckTask != null && !healthCheckTask.isCancelled()) {
+            healthCheckTask.cancel();
+        }
         if (saveTask != null && !saveTask.isCancelled()) {
             saveTask.cancel();
         }
 
-        // Flush remaining operations
-        Bukkit.getScheduler().runTaskLater(Main.getInstance(), this::flushMoneyOperations, 1L);
+        // Flush remaining operations synchronously
+        Main.getMileLogger().info("Flushing remaining operations...");
+        flushMoneyOperations();
 
         connection.close();
         Main.getMileLogger().info("Storage disconnected.");
     }
 
-    /*
-        ES Queries execution
+    /**
+     * Starts the periodic health check routine
      */
+    private void startHealthCheck() {
+        this.healthCheckTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
+                Main.getInstance(),
+                this::checkConnection,
+                HEALTH_CHECK_INTERVAL,
+                HEALTH_CHECK_INTERVAL
+        );
+    }
+
+    /**
+     * Checks Elasticsearch connection health and attempts reconnection if needed
+     */
+    private void checkConnection() {
+        try {
+            ElasticsearchClient esClient = connection.getEsClient(mapper);
+            esClient.cluster().health();
+
+            if (!isConnected) {
+                Main.getMileLogger().info("Connection to Elasticsearch restored!");
+                isConnected = true;
+                consecutiveFailures.set(0);
+                isReconnecting.set(false);
+            }
+        } catch (IOException | ElasticsearchException exception) {
+            int failures = consecutiveFailures.incrementAndGet();
+
+            if (isConnected) {
+                Main.getMileLogger().warning("Lost connection to Elasticsearch (attempt " +
+                        failures + "/" + MAX_CONSECUTIVE_FAILURES + ")");
+            }
+
+            if (failures >= MAX_CONSECUTIVE_FAILURES && !isReconnecting.get()) {
+                isConnected = false;
+                attemptReconnection();
+            }
+        }
+    }
+
+    /**
+     * Attempts to reconnect to Elasticsearch with thread safety
+     */
+    private void attemptReconnection() {
+        if (!isReconnecting.compareAndSet(false, true)) {
+            return; // Another thread is already reconnecting
+        }
+
+        try {
+            Main.getMileLogger().severe("Elasticsearch connection lost! Attempting reconnection...");
+            connection.reconnect();
+            Main.getMileLogger().info("Reconnection successful!");
+            isConnected = true;
+            consecutiveFailures.set(0);
+        } catch (Exception e) {
+            Main.getMileLogger().severe("Reconnection failed: " + e.getMessage());
+        } finally {
+            isReconnecting.set(false);
+        }
+    }
 
     @Override
     public int getMoneyFromTag(@NotNull String tagName, @NotNull Object tagValue) throws StorageExecuteException {
@@ -163,17 +246,42 @@ public class ESStorage implements StorageImplementation {
         return balance;
     }
 
+    /**
+     * Fetches money with automatic retry on failure
+     */
     private int fetchMoney(@NotNull SearchRequest request) throws StorageExecuteException {
-        try (ElasticsearchClient esClient = connection.getEsClient(getMapper())) {
-            SearchResponse<ObjectNode> response = esClient.search(request, ObjectNode.class);
-            Optional<Hit<ObjectNode>> money = response.hits().hits().stream().findFirst();
-            if (money.isPresent() && money.get().source() != null && money.get().source().has("amount")) {
-                return money.get().source().get("amount").asInt();
+        int attempts = 0;
+        StorageExecuteException lastException = null;
+
+        while (attempts < MAX_RETRY_ATTEMPTS) {
+            try {
+                ElasticsearchClient esClient = connection.getEsClient(mapper);
+                SearchResponse<ObjectNode> response = esClient.search(request, ObjectNode.class);
+                Optional<Hit<ObjectNode>> money = response.hits().hits().stream().findFirst();
+                if (money.isPresent() && money.get().source() != null && money.get().source().has("amount")) {
+                    return money.get().source().get("amount").asInt();
+                }
+                return 0;
+            } catch (ElasticsearchException | IOException e) {
+                lastException = new StorageExecuteException(e, "Error fetching money from Elasticsearch");
+                attempts++;
+
+                if (attempts < MAX_RETRY_ATTEMPTS) {
+                    Main.getMileLogger().warning("Fetch failed (attempt " + attempts +
+                            "/" + MAX_RETRY_ATTEMPTS + "), retrying...");
+
+                    // Wait before retry
+                    try {
+                        Thread.sleep(100L);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
             }
-            return 0;
-        } catch (ElasticsearchException | IOException exception) {
-            throw new StorageExecuteException(exception, "Error while executing search request");
         }
+
+        throw lastException;
     }
 
     @Override
@@ -193,29 +301,47 @@ public class ESStorage implements StorageImplementation {
     }
 
     private @NotNull UUID addOperation(@NotNull Map<String, Object> tags, int amount,
-                                       @Nullable String reason) {
+                                       @Nullable String reason) throws StorageExecuteException {
+        // Quick check without lock - trigger async flush if near limit
+        int currentSize = moneyOperations.size();
+        if (currentSize >= MAX_PENDING_OPERATIONS) {
+            Main.getMileLogger().warning("Storage buffer full (" + currentSize +
+                    "/" + MAX_PENDING_OPERATIONS + "). Triggering immediate async flush.");
+
+            // Trigger flush asynchronously without blocking
+            Bukkit.getScheduler().runTaskAsynchronously(Main.getInstance(), this::flushMoneyOperations);
+
+            // Still accept the operation - it will be in the next flush
+            // Only reject if REALLY over limit (safety margin)
+            if (currentSize >= MAX_PENDING_OPERATIONS * 2) {
+                Main.getMileLogger().severe("Storage buffer critically full (" + currentSize +
+                        "). Rejecting operation to prevent memory overflow.");
+                throw new StorageExecuteException(
+                        new Throwable("Storage buffer critically full"),
+                        "Cannot accept new operations: buffer is critically full"
+                );
+            }
+        }
+
         UUID transactionId = UUID.randomUUID();
-        reason = Objects.requireNonNullElse(reason, "No reason provided");
-        if (reason.isBlank()) reason = "No reason provided";
+        String finalReason = (reason == null || reason.isBlank()) ? "No reason provided" : reason;
 
         Map<String, Object> log = new HashMap<>();
         log.put("transactionId", transactionId);
         log.put("tags", tags);
         log.put("operation", amount);
-        log.put("reason", reason);
+        log.put("reason", finalReason);
         log.put("@timestamp", DateMileKat.getDateEs());
 
-        moneyOperations.put(transactionId,
-                new BulkOperation.Builder().create(
-                        new CreateOperation.Builder<>()
-                                .index(BANK_INDEX_TRANSACTIONS)
-                                .document(log)
-                                .build()
-                ).build()
-        );
+        BulkOperation operation = new BulkOperation.Builder().create(
+                new CreateOperation.Builder<>()
+                        .index(BANK_INDEX_TRANSACTIONS)
+                        .document(log)
+                        .build()
+        ).build();
+        moneyOperations.put(transactionId, operation);
 
-        // Fire event on main thread
-        String finalReason = reason;
+        // Fire event on main thread (non-blocking)
         Bukkit.getScheduler().runTask(Main.getInstance(), () ->
                 Bukkit.getPluginManager().callEvent(
                         new MoneySavedSuccessfully(transactionId, tags, amount, finalReason)
@@ -226,7 +352,7 @@ public class ESStorage implements StorageImplementation {
     }
 
     /**
-     * Starts the periodic save operation routine using Bukkit's scheduler
+     * Starts the periodic save operation routine
      */
     private void startSaveOperation() {
         this.saveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
@@ -239,61 +365,80 @@ public class ESStorage implements StorageImplementation {
 
     /**
      * Flushes all pending money operations to Elasticsearch
+     * Lock-free design using ConcurrentHashMap for maximum performance
      */
     private void flushMoneyOperations() {
-        operationLock.writeLock().lock();
+        if (moneyOperations.isEmpty()) {
+            return;
+        }
+
+        // Atomic swap: create new empty map and get reference to old one
+        Map<UUID, BulkOperation> processing = new ConcurrentHashMap<>();
+
+        // Process all current operations
+        moneyOperations.forEach((uuid, operation) -> {
+            processing.put(uuid, operation);
+            moneyOperations.remove(uuid);
+        });
+
+        // Safety check after swap
+        if (processing.isEmpty()) {
+            return;
+        }
+
         try {
-            if (moneyOperations.isEmpty()) {
-                return;
+            ElasticsearchClient esClient = connection.getEsClient(mapper);
+            BulkResponse response = esClient.bulk(
+                    new BulkRequest.Builder()
+                            .operations(new ArrayList<>(processing.values()))
+                            .build()
+            );
+
+            // Successful bulk operation - reset failure counter
+            int previousFailures = consecutiveFailures.getAndSet(0);
+            if (previousFailures > 0) {
+                Main.getMileLogger().info("Flush successful after " + previousFailures + " failures");
+                isConnected = true;
             }
 
-            // Create a copy and clear the original map
-            Map<UUID, BulkOperation> processing = new HashMap<>(moneyOperations);
-            moneyOperations.clear();
+            // Check for errors in the bulk response
+            if (response.errors()) {
+                int failedCount = 0;
+                int successCount = 0;
+                List<UUID> processingIds = new ArrayList<>(processing.keySet());
 
-            try (ElasticsearchClient esClient = connection.getEsClient(getMapper())) {
-                BulkResponse response = esClient.bulk(
-                        new BulkRequest.Builder()
-                                .operations(new ArrayList<>(processing.values()))
-                                .build()
-                );
+                for (int i = 0; i < response.items().size(); i++) {
+                    BulkResponseItem item = response.items().get(i);
+                    UUID operationId = processingIds.get(i);
 
-                // Check for errors in the bulk response
-                if (response.errors()) {
-                    int failedCount = 0;
-                    int successCount = 0;
-                    List<UUID> processingIds = new ArrayList<>(processing.keySet());
+                    if (item.error() != null) {
+                        // Restore failed operation
+                        moneyOperations.put(operationId, processing.get(operationId));
+                        failedCount++;
 
-                    for (int i = 0; i < response.items().size(); i++) {
-                        BulkResponseItem item = response.items().get(i);
-                        UUID operationId = processingIds.get(i);
-
-                        if (item.error() != null) {
-                            // Restore failed operation
-                            moneyOperations.put(operationId, processing.get(operationId));
-                            failedCount++;
-
-                            Main.getMileLogger().warning("Failed to save transaction " + operationId +
-                                    ": " + item.error().reason());
-                        } else {
-                            successCount++;
-                        }
+                        Main.getMileLogger().warning("Failed to save transaction " + operationId +
+                                ": " + item.error().reason());
+                    } else {
+                        successCount++;
                     }
-
-                    Main.getMileLogger().warning("Bulk operation completed with errors: " +
-                            successCount + " succeeded, " + failedCount + " failed."
-                    );
-                } else {
-                    Main.getMileLogger().debug("'" + processing.size() + "' money operation(s) saved successfully.");
                 }
-            } catch (ElasticsearchException | IOException exception) {
-                // Restore all operations on connection/request failure
-                moneyOperations.putAll(processing);
-                Main.getMileLogger().warning("Error while trying to save money operation(s).");
-                Main.getMileLogger().stack(exception.getStackTrace());
+
+                Main.getMileLogger().warning("Bulk operation completed with errors: " +
+                        successCount + " succeeded, " + failedCount + " failed."
+                );
+            } else {
+                Main.getMileLogger().debug("'" + processing.size() + "' money operation(s) saved successfully.");
             }
-        } finally {
-            operationLock.writeLock().unlock();
+        } catch (ElasticsearchException | IOException exception) {
+            // Restore all operations on connection/request failure
+            moneyOperations.putAll(processing);
+            int failures = consecutiveFailures.incrementAndGet();
+            if (failures >= MAX_CONSECUTIVE_FAILURES) {
+                isConnected = false;
+            }
+            Main.getMileLogger().warning("Error while trying to save money operation(s): " +
+                    exception.getMessage());
+            Main.getMileLogger().stack(exception.getStackTrace());
         }
     }
 }
