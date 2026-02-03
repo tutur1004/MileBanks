@@ -28,7 +28,7 @@ allprojects {
         compileOnly group: 'org.jetbrains', name: 'annotations', version: '24.0.1'
 
         //  Minecraft
-        compileOnly group: 'org.spigotmc', name: 'spigot-api', version: '1.21-R0.1-SNAPSHOT'
+        compileOnly group: 'org.spigotmc', name: 'spigot-api', version: '1.21.11-R0.1-SNAPSHOT'
     }
 
     processResources {
