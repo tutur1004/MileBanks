@@ -2,7 +2,7 @@ package fr.milekat.banks.storage.adapter.elasticsearch;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
@@ -156,10 +156,10 @@ public class ESStorage implements StorageImplementation {
     @Override
     public int getMoneyFromTag(@NotNull String tagName, @NotNull Object tagValue) throws StorageExecuteException {
         Main.getMileLogger().debug("[ES-Sync] getMoneyFromTag - search money with tag '" + tagName + "=" + tagValue + "'.");
-        TermQuery.Builder termQuery = Builders.getTermBuilder(tagName, tagValue);
+        BoolQuery.Builder termQuery = Builders.getBuilder(tagName, tagValue);
         SearchRequest request = new SearchRequest.Builder()
                 .index(BANK_INDEX_ACCOUNTS)
-                .query(q -> q.term(termQuery.build()))
+                .query(q -> q.bool(termQuery.build()))
                 .size(1)
                 .build();
         int balance = fetchMoney(request);
@@ -194,13 +194,13 @@ public class ESStorage implements StorageImplementation {
                                          @Nullable String reason) throws StorageExecuteException {
         // Reindex all matching transactions to archived index
         Main.getMileLogger().debug("[ES-Sync] resetMoneyToTag - reset money for tag '" + tagName + "=" + tagValue + "'.");
-        TermQuery.Builder termQuery = Builders.getTermBuilder(tagName, tagValue);
+        BoolQuery.Builder termQuery = Builders.getBuilder(tagName, tagValue);
         try (ElasticsearchClient esClient = connection.getEsClient(getMapper())) {
             flushMoneyOperations();
             esClient.reindex(r -> r
                     .source(s -> s
                             .index(BANK_INDEX_TRANSACTIONS)
-                            .query(q -> q.term(termQuery.build()))
+                            .query(q -> q.bool(termQuery.build()))
                     )
                     .dest(d -> d
                             .index(BANK_INDEX_TRANSACTIONS_ARCHIVED)
