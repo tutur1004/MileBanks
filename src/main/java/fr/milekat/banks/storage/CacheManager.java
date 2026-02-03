@@ -9,21 +9,20 @@ import java.util.*;
 
 public interface CacheManager {
 
-    default int getCacheBalance(@NotNull String tagName, @NotNull Object tagValue) throws StorageExecuteException {
-        if (Main.BANK_ACCOUNT_DELAY == 0) return Main.getStorage().getMoneyFromTag(tagName, tagValue);
-        Main.getMileLogger().debug("Get cache account for tag: " + tagName + ".");
+    default int getCacheBalance(@NotNull Map<String, Object> tags) throws StorageExecuteException {
+        if (Main.BANK_ACCOUNT_DELAY == 0) return Main.getStorage().getMoneyFromTags(tags);
+        Main.getMileLogger().debug("Get cache account for tags: " + tags + ".");
         Optional<Map.Entry<BankAccount, Date>> optionalAccount = Main.BANK_ACCOUNTS_CACHE.entrySet()
                 .stream()
-                .filter(entry -> entry.getKey().tagName().equals(tagName))
-                .filter(entry -> entry.getKey().tagValue().equals(tagValue))
+                .filter(entry -> entry.getKey().tags().equals(tags))
                 .filter(entry -> entry.getValue().getTime() + Main.BANK_ACCOUNT_DELAY > new Date().getTime())
                 .findFirst();
         if (optionalAccount.isPresent()) {
-            Main.getMileLogger().debug("Account with tags: " + tagName + " found.");
+            Main.getMileLogger().debug("Account with tags: " + tags + " found.");
             return optionalAccount.get().getKey().balance();
         } else  {
-            Main.getMileLogger().debug("Account with tags: " + tagName + " not found in cache, try to search it.");
-            return Main.getStorage().getMoneyFromTag(tagName, tagValue);
+            Main.getMileLogger().debug("Account with tags: " + tags + " not found in cache, try to search it.");
+            return Main.getStorage().getMoneyFromTags(tags);
         }
     }
 
@@ -31,12 +30,10 @@ public interface CacheManager {
         if (Main.BANK_ACCOUNT_DELAY == 0) return;
         if (cache.size() >= Main.BANK_ACCOUNTS_CACHE_SIZE) cleanCache(cache);
         List<BankAccount> accounts = new ArrayList<>(cache.keySet());
-        if (accounts.stream().anyMatch(loop -> loop.tagName().equals(account.tagName()) &&
-                loop.tagValue().equals(account.tagValue()))) {
+        if (accounts.stream().anyMatch(loop -> loop.tags().equals(account.tags()))) {
             Map<BankAccount, Date> tempCache = new HashMap<>(cache);
             cache.keySet().stream()
-                    .filter(loop -> loop.tagName().equals(account.tagName()))
-                    .filter(loop -> loop.tagValue().equals(account.tagValue()))
+                    .filter(entry -> entry.tags().equals(account.tags()))
                     .forEach(tempCache::remove);
             tempCache.put(account, new Date());
             cache = new HashMap<>(tempCache);

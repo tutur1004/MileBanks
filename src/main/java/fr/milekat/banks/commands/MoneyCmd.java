@@ -67,7 +67,7 @@ public class MoneyCmd implements TabExecutor {
                             try {
                                 sender.sendMessage(ChatColor.translateAlternateColorCodes('&',
                                         "&r  >&eBalance: &a" +
-                                                Main.getStorage().getCacheBalance(key, value)));
+                                                Main.getStorage().getCacheBalance(Map.of(key, value))));
                             } catch (StorageExecuteException e) {
                                 Main.message(sender, "&cMoney not found for this tag.");
                             }

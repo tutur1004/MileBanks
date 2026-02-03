@@ -40,7 +40,18 @@ public interface MileBanksIAPI {
      * @return The amount of money associated with the tag.
      * @throws StorageException if there is an error accessing the storage.
      */
-    int getMoneyByTag(@NotNull String tagName, @NotNull Object tagValue) throws StorageException;
+    default int getMoneyByTag(@NotNull String tagName, @NotNull Object tagValue) throws StorageException {
+        return getMoneyByTags(Map.of(tagName, tagValue));
+    }
+
+    /**
+     * Retrieves the amount of money associated with a specific tags.
+     *
+     * @param tags   A map of tags, where each tagName represents the tag name and the value of the tag.
+     * @return The amount of money associated with the tag.
+     * @throws StorageException if there is an error accessing the storage.
+     */
+    int getMoneyByTags(@NotNull Map<String, Object> tags) throws StorageException;
 
     /*
         Add money

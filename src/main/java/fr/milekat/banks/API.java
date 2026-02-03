@@ -32,7 +32,8 @@ public class API implements MileBanksIAPI {
             }
             Map<String, Integer> tagsBalances = new HashMap<>();
             for (Map.Entry<String, Object> entry : Main.PLAYER_TAGS.get(player).entrySet()) {
-                tagsBalances.put(entry.getKey(), Main.getStorage().getCacheBalance(entry.getKey(), entry.getValue()));
+                tagsBalances.put(entry.getKey(), Main.getStorage()
+                        .getCacheBalance(Map.of(entry.getKey(), entry.getValue())));
             }
             return tagsBalances;
         } catch (StorageExecuteException exception) {
@@ -41,9 +42,9 @@ public class API implements MileBanksIAPI {
     }
 
     @Override
-    public int getMoneyByTag(@NotNull String tagName, @NotNull Object tagValue) throws StorageException {
+    public int getMoneyByTags(@NotNull Map<String, Object> tags) throws StorageException {
         try {
-            return Main.getStorage().getCacheBalance(tagName, tagValue);
+            return Main.getStorage().getCacheBalance(tags);
         } catch (StorageExecuteException exception) {
             throw new StorageException(exception, exception.getMessage());
         }

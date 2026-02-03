@@ -154,16 +154,19 @@ public class ESStorage implements StorageImplementation {
      */
 
     @Override
-    public int getMoneyFromTag(@NotNull String tagName, @NotNull Object tagValue) throws StorageExecuteException {
-        Main.getMileLogger().debug("[ES-Sync] getMoneyFromTag - search money with tag '" + tagName + "=" + tagValue + "'.");
-        BoolQuery.Builder termQuery = Builders.getBuilder(tagName, tagValue);
-        SearchRequest request = new SearchRequest.Builder()
+    public int getMoneyFromTags(@NotNull Map<String, Object> tags) throws StorageExecuteException {
+        Main.getMileLogger().debug("[ES-Sync] getMoneyFromTag - search money with tags " + tags + ".");
+        SearchRequest.Builder requestBuilder = new SearchRequest.Builder()
                 .index(BANK_INDEX_ACCOUNTS)
-                .query(q -> q.bool(termQuery.build()))
-                .size(1)
-                .build();
+                .size(1);
+        BoolQuery.Builder boolQuery = new BoolQuery.Builder();
+        for (Map.Entry<String, Object> tag : tags.entrySet()) {
+            boolQuery.must(Builders.getBuilder(tag.getKey(), tag.getValue()).build());
+        }
+        requestBuilder.query(q -> q.bool(boolQuery.build()));
+        SearchRequest request = requestBuilder.build();
         int balance = fetchMoney(request);
-        CacheManager.addCacheAccount(Main.BANK_ACCOUNTS_CACHE, new BankAccount(tagName, tagValue, balance));
+        CacheManager.addCacheAccount(Main.BANK_ACCOUNTS_CACHE, new BankAccount(tags, balance));
         return balance;
     }
 
