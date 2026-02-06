@@ -77,7 +77,7 @@ public class ESStorage implements StorageImplementation {
         this.BANK_INDEX_ACCOUNTS = prefix + "accounts";
         this.numberOfReplicas = config.getString("storage.elasticsearch.replicas", "0");
         this.SAVE_INTERVAL_TICKS = config.getLong("storage.elasticsearch.save-interval-ticks", 20L);
-
+        //  TODO - 2026/02/06 : Handle multiple money, globally better transforms creation
         transactions_fields.put("operation", Double.class);
         transactions_fields.put("reason", String.class);
         transactions_fields.put("transactionId", UUID.class);
@@ -160,8 +160,16 @@ public class ESStorage implements StorageImplementation {
                 .index(BANK_INDEX_ACCOUNTS)
                 .size(1);
         BoolQuery.Builder boolQuery = new BoolQuery.Builder();
+        if (tags.isEmpty()) {
+            return 0;
+        }
         for (Map.Entry<String, Object> tag : tags.entrySet()) {
-            boolQuery.must(Builders.getBuilder(tag.getKey(), tag.getValue()).build());
+            boolQuery.must(
+                    q -> q.term(t -> t
+                            .field(tag.getKey())
+                            .value(tag.getValue().toString())
+                    )
+            );
         }
         requestBuilder.query(q -> q.bool(boolQuery.build()));
         SearchRequest request = requestBuilder.build();
@@ -171,8 +179,10 @@ public class ESStorage implements StorageImplementation {
     }
 
     private int fetchMoney(@NotNull SearchRequest request) throws StorageExecuteException {
+        Main.getMileLogger().debug("Search request built: " + request);
         try (ElasticsearchClient esClient = connection.getEsClient(getMapper())) {
             SearchResponse<ObjectNode> response = esClient.search(request, ObjectNode.class);
+            Main.getMileLogger().debug("Search response received: " + response.toString());
             Optional<Hit<ObjectNode>> money = response.hits().hits().stream().findFirst();
             if (money.isPresent() && money.get().source() != null && money.get().source().has("amount")) {
                 return money.get().source().get("amount").asInt();
