@@ -15,7 +15,7 @@ allprojects {
         maven { url = "https://hub.spigotmc.org/nexus/content/repositories/snapshots/" }
         maven { url = "https://libraries.minecraft.net/" }
         maven {
-            url = uri("https://maven.pkg.github.com/tutur1004/MileNpc")
+            url = uri("https://maven.pkg.github.com/tutur1004/MilekatUtils")
             credentials {
                 username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
                 password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
