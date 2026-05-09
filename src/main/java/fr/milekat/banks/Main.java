@@ -12,7 +12,9 @@ import fr.milekat.utils.storage.StorageConnection;
 import fr.milekat.utils.storage.StorageLoader;
 import fr.milekat.utils.storage.StorageVendor;
 import fr.milekat.utils.storage.adapter.elasticsearch.connection.ESConnection;
+import fr.milekat.utils.storage.adapter.sql.connection.SQLConnection;
 import fr.milekat.utils.storage.exceptions.StorageLoadException;
+import fr.milekat.utils.storage.utils.StorageConfig;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
@@ -163,8 +165,9 @@ public class Main extends JavaPlugin {
         try {
             getStorage().disconnect();
         } catch (Exception ignored) {}
-        StorageConnection connection = new StorageLoader(config, logger).getLoadedConnection();
-        if (Objects.requireNonNull(connection.getVendor()) == StorageVendor.ELASTICSEARCH) {
+        StorageConfig storageConfig = StorageConfig.fromConfig(config);
+        StorageConnection connection = new StorageLoader(storageConfig, logger).getLoadedConnection();
+        if (storageConfig.type() == StorageVendor.ELASTICSEARCH) {
             STORAGE = new ESStorage((ESConnection) connection, config);
         } else {
             throw new StorageLoadException("Unsupported storage type");
