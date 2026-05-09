@@ -20,12 +20,8 @@ public class StorageException extends Exception {
     public StorageException(Throwable exception, String message) {
         super(exception);
         this.message = message;
-        try {
-            if (MileBanksAPI.getAPI().isDebug()) {
-                exception.printStackTrace();
-            }
-        } catch (ApiUnavailable ignore) {
-            //  Not possible since you can't except a Storage Exception from the API... if the API is not loaded...
+        if (MileBanksAPI.isDebug()) {
+            exception.printStackTrace();
         }
     }
 

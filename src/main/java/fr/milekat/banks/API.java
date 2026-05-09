@@ -1,6 +1,5 @@
 package fr.milekat.banks;
 
-import fr.milekat.banks.api.MileBanksAPI;
 import fr.milekat.banks.api.MileBanksIAPI;
 import fr.milekat.banks.api.exceptions.StorageException;
 import fr.milekat.utils.storage.exceptions.StorageExecuteException;
@@ -13,11 +12,6 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class API implements MileBanksIAPI {
-
-    public API() {
-        MileBanksAPI.API_READY = true;
-        Main.getMileLogger().info("API is ready !");
-    }
 
     @Override
     public boolean isDebug() {

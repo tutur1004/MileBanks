@@ -1,6 +1,6 @@
 package fr.milekat.banks;
 
-import fr.milekat.banks.api.MileBanksAPI;
+import fr.milekat.banks.api.MileBanksIAPI;
 import fr.milekat.banks.commands.MoneyCmd;
 import fr.milekat.banks.listeners.DefaultTags;
 import fr.milekat.banks.storage.StorageImplementation;
@@ -13,10 +13,12 @@ import fr.milekat.utils.storage.StorageLoader;
 import fr.milekat.utils.storage.StorageVendor;
 import fr.milekat.utils.storage.adapter.elasticsearch.connection.ESConnection;
 import fr.milekat.utils.storage.exceptions.StorageLoadException;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -62,7 +64,7 @@ public class Main extends JavaPlugin {
             return;
         }
         //  Load API
-        MileBanksAPI.LOADED_API = new API();
+        Bukkit.getServicesManager().register(MileBanksIAPI.class, new API(), this, ServicePriority.Normal);
         //  Load plugin listeners
         if (config.getBoolean("tags.enable_builtin_tags", true)) {
             plugin.getServer().getPluginManager().registerEvents(new DefaultTags(), this);
