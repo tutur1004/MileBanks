@@ -39,6 +39,7 @@ public class Main extends JavaPlugin {
     public static int BANK_ACCOUNTS_CACHE_SIZE = 1000;
     public static final Map<String, Class<?>> TAGS = new HashMap<>();
     public static final Map<UUID, Map<String, Object>> PLAYER_TAGS = new HashMap<>();
+    public static List<String> CURRENCIES = new ArrayList<>();
 
     @Override
     public void onEnable() {
@@ -143,6 +144,10 @@ public class Main extends JavaPlugin {
             config.getStringList("tags.custom.double").forEach(tag -> TAGS.put(tag, Double.class));
             config.getStringList("tags.custom.boolean").forEach(tag -> TAGS.put(tag, Boolean.class));
         }
+        CURRENCIES = config.getStringList("tags.currencies.list");
+        if (isMultiCurrency()) {
+            TAGS.put("currency", String.class);
+        }
         DEBUG = config.getBoolean("debug", false);
         logger.setDebug(DEBUG);
         PREFIX = ChatColor.translateAlternateColorCodes('&',
@@ -179,6 +184,13 @@ public class Main extends JavaPlugin {
         }
         Main.BANK_ACCOUNTS_CACHE.clear();
         logger.debug("Storage enable, API is now available");
+    }
+
+    /**
+     * Returns true if the plugin is configured to use multiple currencies, false otherwise.
+     */
+    public static boolean isMultiCurrency() {
+        return !CURRENCIES.isEmpty();
     }
 
     /**

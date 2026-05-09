@@ -77,14 +77,13 @@ public class ESStorage implements StorageImplementation {
         this.BANK_INDEX_ACCOUNTS = prefix + "accounts";
         this.numberOfReplicas = config.getString("storage.elasticsearch.replicas", "0");
         this.SAVE_INTERVAL_TICKS = config.getLong("storage.elasticsearch.save-interval-ticks", 20L);
-        //  TODO - 2026/02/06 : Handle multiple money, globally better transforms creation
         transactions_fields.put("operation", Double.class);
         transactions_fields.put("reason", String.class);
         transactions_fields.put("transactionId", UUID.class);
         transactions_fields.put("@timestamp", Date.class);
 
         accounts_fields.put("amount", Integer.class);
-        accounts_fields.putAll(Main.TAGS);
+        accounts_fields.putAll(Main.TAGS); // includes "currency" when multi-currency
 
         try (ElasticsearchClient esClient = connection.getEsClient(getMapper())) {
             Main.getMileLogger().debug(esClient.cluster().health().toString());
@@ -119,10 +118,17 @@ public class ESStorage implements StorageImplementation {
                     accounts_fields, new HashMap<>(), "");
             Main.getMileLogger().debug("Check transforms...");
             for (Map.Entry<String, Class<?>> tag : Main.TAGS.entrySet()) {
+                // Skip the standalone "currency" tag — it's combined with each player tag below
+                if (tag.getKey().equals("currency")) continue;
+                Map<String, Class<?>> groupBy = new LinkedHashMap<>();
+                groupBy.put(tag.getKey(), tag.getValue());
+                if (Main.isMultiCurrency()) {
+                    groupBy.put("currency", String.class);
+                }
                 new Transforms(esClient,
                         BANK_INDEX_TRANSACTIONS, BANK_INDEX_ACCOUNTS,
                         "@timestamp", "0s", "1s",
-                        Map.of(tag.getKey(), tag.getValue()));
+                        groupBy);
             }
             Main.getMileLogger().debug("Storage is ready.");
             return true;
@@ -179,10 +185,8 @@ public class ESStorage implements StorageImplementation {
     }
 
     private int fetchMoney(@NotNull SearchRequest request) throws StorageExecuteException {
-        Main.getMileLogger().debug("Search request built: " + request);
         try (ElasticsearchClient esClient = connection.getEsClient(getMapper())) {
             SearchResponse<ObjectNode> response = esClient.search(request, ObjectNode.class);
-            Main.getMileLogger().debug("Search response received: " + response.toString());
             Optional<Hit<ObjectNode>> money = response.hits().hits().stream().findFirst();
             if (money.isPresent() && money.get().source() != null && money.get().source().has("amount")) {
                 return money.get().source().get("amount").asInt();
@@ -203,23 +207,31 @@ public class ESStorage implements StorageImplementation {
     }
 
     @Override
-    public @NotNull UUID resetMoneyToTag(@NotNull String tagName, @NotNull Object tagValue,
-                                         @Nullable String reason) throws StorageExecuteException {
-        // Reindex all matching transactions to archived index
-        Main.getMileLogger().debug("[ES-Sync] resetMoneyToTag - reset money for tag '" + tagName + "=" + tagValue + "'.");
-        BoolQuery.Builder termQuery = Builders.getBuilder(tagName, tagValue);
+    public @NotNull UUID resetMoneyToTags(@NotNull Map<String, Object> tags,
+                                          @Nullable String reason) throws StorageExecuteException {
+        Main.getMileLogger().debug("[ES-Sync] resetMoneyToTags - reset money for tags " + tags + ".");
+        BoolQuery.Builder boolQuery;
+        if (tags.size() == 1) {
+            Map.Entry<String, Object> entry = tags.entrySet().iterator().next();
+            boolQuery = Builders.getBuilder(entry.getKey(), entry.getValue());
+        } else {
+            boolQuery = new BoolQuery.Builder();
+            for (Map.Entry<String, Object> tag : tags.entrySet()) {
+                String key = tag.getKey();
+                String value = tag.getValue().toString();
+                boolQuery.must(q -> q.term(t -> t.field("tags." + key).value(value)));
+            }
+        }
         try (ElasticsearchClient esClient = connection.getEsClient(getMapper())) {
             flushMoneyOperations();
             esClient.reindex(r -> r
                     .source(s -> s
                             .index(BANK_INDEX_TRANSACTIONS)
-                            .query(q -> q.bool(termQuery.build()))
+                            .query(q -> q.bool(boolQuery.build()))
                     )
-                    .dest(d -> d
-                            .index(BANK_INDEX_TRANSACTIONS_ARCHIVED)
-                    )
+                    .dest(d -> d.index(BANK_INDEX_TRANSACTIONS_ARCHIVED))
             );
-            return addOperation(Map.of(tagName, tagValue), 0, reason);
+            return addOperation(tags, 0, reason);
         } catch (ElasticsearchException | IOException exception) {
             throw new StorageExecuteException(exception, "Error while trying to reindex transactions");
         }

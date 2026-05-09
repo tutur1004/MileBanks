@@ -49,6 +49,12 @@ messages:
 tags:
   # If false, you will have to set players tags alone
   enable_builtin_tags: true
+  # Currencies feature (Advanced users)
+  # Operation currency is saved in tags "currency" if multiple currencies are available
+  # If you don't want to use multiple currencies, just let the list empty and set a default currency name
+  currencies:
+    # List of all available currencies (Should be in lowercase and without spaces, only letters and dashes are allowed)
+    list: [ ]
   ##############################
   # Advanced users ONLY (This section require a plugin who set tags for players)
   # Need 'enable_builtin_tags' to false

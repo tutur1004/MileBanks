@@ -4,6 +4,7 @@ import fr.milekat.banks.api.exceptions.StorageException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -18,6 +19,24 @@ public interface MileBanksIAPI {
      * @return true if the API is in debug mode, false otherwise.
      */
     boolean isDebug();
+
+    /*
+        Currencies
+     */
+
+    /**
+     * Returns true if more than one currency is configured.
+     * When true, all money operations require a "currency" tag.
+     */
+    boolean isMultiCurrency();
+
+    /**
+     * Returns the list of all configured currencies.
+     * Empty when {@link #isMultiCurrency()} is false.
+     *
+     * @return immutable list of currency names.
+     */
+    @NotNull List<String> getCurrencies();
 
     /*
         Get money
@@ -188,7 +207,19 @@ public interface MileBanksIAPI {
      */
     
     /**
-     * Sets the amount of money for a specific tag.
+     * Resets the amount of money for a specific set of tags (e.g. tag + currency).
+     * Use this method when multiple currencies are configured.
+     *
+     * @param tags   A map of tags that identify the account to reset (must include "currency" when multi-currency).
+     * @param reason Operation reason (Or an operation description).
+     * @return Transaction id.
+     * @throws StorageException if there is an error while updating the storage.
+     */
+    UUID resetMoneyByTags(@NotNull Map<String, Object> tags, @Nullable String reason) throws StorageException;
+
+    /**
+     * Resets the amount of money for a specific tag.
+     * When multiple currencies are configured, use {@link #resetMoneyByTags(Map, String)} instead.
      *
      * @param tagName    The name of the tag.
      * @param tagValue  The value of the tag.
