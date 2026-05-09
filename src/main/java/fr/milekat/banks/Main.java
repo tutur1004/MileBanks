@@ -1,6 +1,6 @@
 package fr.milekat.banks;
 
-import fr.milekat.banks.api.MileBanksAPI;
+import fr.milekat.banks.api.MileBanksIAPI;
 import fr.milekat.banks.commands.MoneyCmd;
 import fr.milekat.banks.listeners.DefaultTags;
 import fr.milekat.banks.storage.StorageImplementation;
@@ -13,10 +13,12 @@ import fr.milekat.utils.storage.StorageLoader;
 import fr.milekat.utils.storage.StorageVendor;
 import fr.milekat.utils.storage.adapter.elasticsearch.connection.ESConnection;
 import fr.milekat.utils.storage.exceptions.StorageLoadException;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -37,6 +39,7 @@ public class Main extends JavaPlugin {
     public static int BANK_ACCOUNTS_CACHE_SIZE = 1000;
     public static final Map<String, Class<?>> TAGS = new HashMap<>();
     public static final Map<UUID, Map<String, Object>> PLAYER_TAGS = new HashMap<>();
+    public static List<String> CURRENCIES = new ArrayList<>();
 
     @Override
     public void onEnable() {
@@ -62,7 +65,7 @@ public class Main extends JavaPlugin {
             return;
         }
         //  Load API
-        MileBanksAPI.LOADED_API = new API();
+        Bukkit.getServicesManager().register(MileBanksIAPI.class, new API(), this, ServicePriority.Normal);
         //  Load plugin listeners
         if (config.getBoolean("tags.enable_builtin_tags", true)) {
             plugin.getServer().getPluginManager().registerEvents(new DefaultTags(), this);
@@ -141,6 +144,10 @@ public class Main extends JavaPlugin {
             config.getStringList("tags.custom.double").forEach(tag -> TAGS.put(tag, Double.class));
             config.getStringList("tags.custom.boolean").forEach(tag -> TAGS.put(tag, Boolean.class));
         }
+        CURRENCIES = config.getStringList("tags.currencies.list");
+        if (isMultiCurrency()) {
+            TAGS.put("currency", String.class);
+        }
         DEBUG = config.getBoolean("debug", false);
         logger.setDebug(DEBUG);
         PREFIX = ChatColor.translateAlternateColorCodes('&',
@@ -177,6 +184,13 @@ public class Main extends JavaPlugin {
         }
         Main.BANK_ACCOUNTS_CACHE.clear();
         logger.debug("Storage enable, API is now available");
+    }
+
+    /**
+     * Returns true if the plugin is configured to use multiple currencies, false otherwise.
+     */
+    public static boolean isMultiCurrency() {
+        return !CURRENCIES.isEmpty();
     }
 
     /**

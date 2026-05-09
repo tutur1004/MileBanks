@@ -1,8 +1,9 @@
 package fr.milekat.banks.api;
 
 import fr.milekat.banks.api.exceptions.ApiUnavailable;
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.RegisteredServiceProvider;
+import org.jspecify.annotations.NonNull;
 
 /**
  * Main entry point for accessing the MileBanks API.
@@ -12,35 +13,21 @@ import org.jetbrains.annotations.NotNull;
  * </p>
  */
 public class MileBanksAPI {
-    /**
-     * Default constructor.
-     * <p>
-     * This constructor is provided for instantiation purposes, though typically
-     * this class is used through its static methods.
-     * </p>
-     */
-    public MileBanksAPI() {}
 
-    /**
-     * Indicates whether the API is ready for use.
-     */
-    public static boolean API_READY = false;
-    /**
-     * The loaded API instance.
-     */
-    public static MileBanksIAPI LOADED_API;
-
-    /**
-     * Retrieves the instance of the banks API.
-     *
-     * @return The banks API instance.
-     * @throws ApiUnavailable if the API is not ready.
-     */
-    @Contract(value = " -> new", pure = true)
-    public static @NotNull MileBanksIAPI getAPI() throws ApiUnavailable {
-        if (!MileBanksAPI.API_READY) {
-            throw new ApiUnavailable();
+    public static boolean isDebug() {
+        try {
+            return getLoadBankAPI().isDebug();
+        } catch (ApiUnavailable e) {
+            return false;
         }
-        return LOADED_API;
+    }
+
+    private static @NonNull MileBanksIAPI getLoadBankAPI() throws ApiUnavailable {
+        RegisteredServiceProvider<MileBanksIAPI> provider =
+                Bukkit.getServicesManager().getRegistration(MileBanksIAPI.class);
+
+        if (provider == null) throw new ApiUnavailable();
+
+        return provider.getProvider();
     }
 }

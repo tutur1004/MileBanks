@@ -37,10 +37,11 @@ messages:
         add: "add <player> <amount> [reason]&r: &eAdd money to a player's balance(s)"
         remove: "remove <player> <amount> [reason]&r: &eRemove money from player's balance(s)"
         get: "get <player>&r: &eGet all balances of a player and their values"
+        reset: "reset <player> [amount]&r: &eReset a player's balance (0 if no amount)"
         tags:
           add: "tags add <tag-name> <tag-value> <amount> [reason]&r: &eAdd money to a tag balance"
           remove: "tags remove <tag-name> <tag-value> <amount> [reason]&r: &eRemove money from a tag balance"
-          set: "tags set <tag-name> <tag-value> <amount> [reason]&r: &eSet a tag balance"
+          reset: "tags reset <tag-name> <tag-value> [amount]&r: &eReset a tag balance (0 if no amount)"
           get: "tags get <tag-name> <tag-value>&r: &eGet a tag balance"
         reload: "reload&r: &eReload the plugin"
         help: "help&r: &eShow this help message"
@@ -49,6 +50,12 @@ messages:
 tags:
   # If false, you will have to set players tags alone
   enable_builtin_tags: true
+  # Currencies feature (Advanced users)
+  # Operation currency is saved in tags "currency" if multiple currencies are available
+  # If you don't want to use multiple currencies, just let the list empty and set a default currency name
+  currencies:
+    # List of all available currencies (Should be in lowercase and without spaces, only letters and dashes are allowed)
+    list: [ ]
   ##############################
   # Advanced users ONLY (This section require a plugin who set tags for players)
   # Need 'enable_builtin_tags' to false
