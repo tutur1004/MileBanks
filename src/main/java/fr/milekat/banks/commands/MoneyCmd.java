@@ -70,9 +70,9 @@ public class MoneyCmd implements TabExecutor {
                         return true;
                     }
 
-                    // For ADD / REMOVE / SET: currency is mandatory when multi-currency
+                    // Currency validation (mandatory when multi-currency)
                     String selectedCurrency = null;
-                    int amountArgIndex = 2;
+                    int nextArgIndex = 2;
                     if (Main.isMultiCurrency()) {
                         if (args.length == 2 || !Main.CURRENCIES.contains(args[2])) {
                             Main.message(sender, "&cA currency must be specified. Available: &e"
@@ -80,15 +80,16 @@ public class MoneyCmd implements TabExecutor {
                             return true;
                         }
                         selectedCurrency = args[2];
-                        amountArgIndex = 3;
+                        nextArgIndex = 3;
                     }
 
+                    // Amount: optional for RESET (defaults to 0), mandatory for ADD/REMOVE
                     int amount = 0;
                     String reason = "Command";
-                    if (args.length > amountArgIndex) {
-                        amount = Integer.parseInt(args[amountArgIndex]);
-                        if (args.length > amountArgIndex + 1) {
-                            reason = String.join(" ", Arrays.copyOfRange(args, amountArgIndex + 1, args.length));
+                    if (args.length > nextArgIndex) {
+                        amount = Integer.parseInt(args[nextArgIndex]);
+                        if (args.length > nextArgIndex + 1) {
+                            reason = String.join(" ", Arrays.copyOfRange(args, nextArgIndex + 1, args.length));
                         }
                     }
 
@@ -96,27 +97,24 @@ public class MoneyCmd implements TabExecutor {
                     if (Main.isMultiCurrency()) {
                         operationTags.put("currency", selectedCurrency);
                     }
+                    String currencySuffix = Main.isMultiCurrency() ? " [" + selectedCurrency + "]" : "";
 
                     switch (moneyAction) {
                         case ADD -> {
                             Main.getStorage().addMoneyToTags(operationTags, amount, reason);
-                            Main.message(sender, "Added " + amount + " to balance"
-                                    + (Main.isMultiCurrency() ? " [" + selectedCurrency + "]" : "") + ".");
+                            Main.message(sender, "Added " + amount + " to balance" + currencySuffix + ".");
                         }
                         case REMOVE -> {
                             Main.getStorage().removeMoneyToTags(operationTags, amount, reason);
-                            Main.message(sender, "Removed " + amount + " from balance"
-                                    + (Main.isMultiCurrency() ? " [" + selectedCurrency + "]" : "") + ".");
+                            Main.message(sender, "Removed " + amount + " from balance" + currencySuffix + ".");
                         }
-                        case SET -> {
+                        case RESET -> {
                             if (tags.size() > 1) {
-                                Main.message(sender, "&cYou can't set balance to multiple tags.");
+                                Main.message(sender, "&cYou can't reset balance for multiple tags at once.");
                                 return true;
                             }
-                            Main.getStorage().resetMoneyToTags(operationTags, reason);
-                            Main.getStorage().addMoneyToTags(operationTags, amount, reason);
-                            Main.message(sender, "Set balance to " + amount
-                                    + (Main.isMultiCurrency() ? " [" + selectedCurrency + "]" : "") + ".");
+                            Main.getStorage().resetMoneyToTags(operationTags, amount, reason);
+                            Main.message(sender, "Balance reset to " + amount + currencySuffix + ".");
                         }
                         default -> {
                             return sendHelp(sender, label);
@@ -160,9 +158,9 @@ public class MoneyCmd implements TabExecutor {
                         return true;
                     }
 
-                    // Tags ADD / REMOVE / SET: currency is mandatory when multi-currency
+                    // Currency validation (mandatory when multi-currency)
                     String selectedCurrency = null;
-                    int amountArgIndex = 4;
+                    int nextArgIndex = 4;
                     if (Main.isMultiCurrency()) {
                         if (args.length == 4 || !Main.CURRENCIES.contains(args[4])) {
                             Main.message(sender, "&cA currency must be specified. Available: &e"
@@ -170,15 +168,16 @@ public class MoneyCmd implements TabExecutor {
                             return true;
                         }
                         selectedCurrency = args[4];
-                        amountArgIndex = 5;
+                        nextArgIndex = 5;
                     }
 
+                    // Amount: optional for RESET (defaults to 0), mandatory for ADD/REMOVE
                     int amount = 0;
                     String reason = "Command";
-                    if (args.length > amountArgIndex) {
-                        amount = Integer.parseInt(args[amountArgIndex]);
-                        if (args.length > amountArgIndex + 1) {
-                            reason = String.join(" ", Arrays.copyOfRange(args, amountArgIndex + 1, args.length));
+                    if (args.length > nextArgIndex) {
+                        amount = Integer.parseInt(args[nextArgIndex]);
+                        if (args.length > nextArgIndex + 1) {
+                            reason = String.join(" ", Arrays.copyOfRange(args, nextArgIndex + 1, args.length));
                         }
                     }
 
@@ -186,23 +185,20 @@ public class MoneyCmd implements TabExecutor {
                     if (Main.isMultiCurrency()) {
                         operationTags.put("currency", selectedCurrency);
                     }
+                    String currencySuffix = Main.isMultiCurrency() ? " [" + selectedCurrency + "]" : "";
 
                     switch (moneyAction) {
                         case ADD -> {
                             Main.getStorage().addMoneyToTags(operationTags, amount, reason);
-                            Main.message(sender, "Added " + amount + " to balance"
-                                    + (Main.isMultiCurrency() ? " [" + selectedCurrency + "]" : "") + ".");
+                            Main.message(sender, "Added " + amount + " to balance" + currencySuffix + ".");
                         }
                         case REMOVE -> {
                             Main.getStorage().removeMoneyToTags(operationTags, amount, reason);
-                            Main.message(sender, "Removed " + amount + " from balance"
-                                    + (Main.isMultiCurrency() ? " [" + selectedCurrency + "]" : "") + ".");
+                            Main.message(sender, "Removed " + amount + " from balance" + currencySuffix + ".");
                         }
-                        case SET -> {
-                            Main.getStorage().resetMoneyToTags(operationTags, reason);
-                            Main.getStorage().addMoneyToTags(operationTags, amount, reason);
-                            Main.message(sender, "Set balance to " + amount
-                                    + (Main.isMultiCurrency() ? " [" + selectedCurrency + "]" : "") + ".");
+                        case RESET -> {
+                            Main.getStorage().resetMoneyToTags(operationTags, amount, reason);
+                            Main.message(sender, "Balance reset to " + amount + currencySuffix + ".");
                         }
                         default -> {
                             return sendHelp(sender, label);
@@ -239,27 +235,31 @@ public class MoneyCmd implements TabExecutor {
         boolean multi = Main.isMultiCurrency();
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
                 "messages.command.money.help.add",
-                "add <player>" + (multi ? " [currency]" : "") + " <amount> [reason]&r: &eAdd money to a player's balance(s)"
+                "add <player>" + (multi ? " <currency>" : "") + " <amount> [reason]&r: &eAdd money to a player's balance(s)"
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
                 "messages.command.money.help.remove",
-                "remove <player>" + (multi ? " [currency]" : "") + " <amount> [reason]&r: &eRemove money from player's balance(s)"
+                "remove <player>" + (multi ? " <currency>" : "") + " <amount> [reason]&r: &eRemove money from player's balance(s)"
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
                 "messages.command.money.help.get",
                 "get <player>&r: &eGet all balances of a player and their values"
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
+                "messages.command.money.help.reset",
+                "reset <player>" + (multi ? " <currency>" : "") + " [amount]&r: &eReset a player's balance (0 if no amount)"
+        ));
+        Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
                 "messages.command.money.help.tags.add",
-                "tags add <tag-name> <tag-value>" + (multi ? " [currency]" : "") + " <amount> [reason]&r: &eAdd money to a tag balance"
+                "tags add <tag-name> <tag-value>" + (multi ? " <currency>" : "") + " <amount> [reason]&r: &eAdd money to a tag balance"
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
                 "messages.command.money.help.tags.remove",
-                "tags remove <tag-name> <tag-value>" + (multi ? " [currency]" : "") + " <amount> [reason]&r: &eRemove money from a tag balance"
+                "tags remove <tag-name> <tag-value>" + (multi ? " <currency>" : "") + " <amount> [reason]&r: &eRemove money from a tag balance"
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
-                "messages.command.money.help.tags.set",
-                "tags set <tag-name> <tag-value>" + (multi ? " [currency]" : "") + " <amount> [reason]&r: &eSet money to a tag balance"
+                "messages.command.money.help.tags.reset",
+                "tags reset <tag-name> <tag-value>" + (multi ? " <currency>" : "") + " [amount]&r: &eReset a tag balance (0 if no amount)"
         ));
         Main.message(sender, "&6/" + lbl + " " + Main.getConfigs().getMessage(
                 "messages.command.money.help.tags.get",
@@ -281,30 +281,27 @@ public class MoneyCmd implements TabExecutor {
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
                                       @NotNull String label, @NotNull String @NotNull [] args) {
         if (args.length <= 1) {
-            return McTools.getTabArgs(args[0], Arrays.asList("add", "remove", "get", "set", "tags", "reload", "help"));
+            return McTools.getTabArgs(args[0], Arrays.asList("add", "remove", "get", "reset", "tags", "reload", "help"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("add") || args[0].equalsIgnoreCase("remove") ||
-                    args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("get")) {
+                    args[0].equalsIgnoreCase("reset") || args[0].equalsIgnoreCase("get")) {
                 return McTools.getTabArgs(args[1], Bukkit.getOnlinePlayers().stream().map(Player::getName)
                         .collect(Collectors.toList()));
             } else if (args[0].equalsIgnoreCase("tags")) {
-                return McTools.getTabArgs(args[1], Arrays.asList("add", "remove", "set", "get"));
+                return McTools.getTabArgs(args[1], Arrays.asList("add", "remove", "reset", "get"));
             }
         } else if (args.length == 3) {
             if (args[0].equalsIgnoreCase("tags")) {
-                // Exclude "currency" from tag name suggestions (it's internal)
                 List<String> tagNames = Main.TAGS.keySet().stream()
                         .filter(k -> !k.equals("currency"))
                         .collect(Collectors.toList());
                 return McTools.getTabArgs(args[2], tagNames);
             } else if (Main.isMultiCurrency() &&
                     (args[0].equalsIgnoreCase("add") || args[0].equalsIgnoreCase("remove") ||
-                            args[0].equalsIgnoreCase("set"))) {
-                // Suggest currencies (or amount if starts with digit)
+                            args[0].equalsIgnoreCase("reset"))) {
                 return McTools.getTabArgs(args[2], Main.CURRENCIES);
             }
         } else if (args.length == 5 && args[0].equalsIgnoreCase("tags") && Main.isMultiCurrency()) {
-            // args[1]=action, args[2]=tag, args[3]=value, args[4]=currency or amount
             if (!args[1].equalsIgnoreCase("get")) {
                 return McTools.getTabArgs(args[4], Main.CURRENCIES);
             }
@@ -316,7 +313,7 @@ public class MoneyCmd implements TabExecutor {
         ADD,
         REMOVE,
         GET,
-        SET,
+        RESET,
         TAGS
     }
 }

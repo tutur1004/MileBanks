@@ -207,28 +207,59 @@ public interface MileBanksIAPI {
      */
     
     /**
-     * Resets the amount of money for a specific set of tags (e.g. tag + currency).
+     * Resets the balance for a specific set of tags to the given amount (default 0).
      * Use this method when multiple currencies are configured.
+     *
+     * @param tags   A map of tags that identify the account to reset (must include "currency" when multi-currency).
+     * @param amount The amount to set the balance to after reset.
+     * @param reason Operation reason (Or an operation description).
+     * @return Transaction id.
+     * @throws StorageException if there is an error while updating the storage.
+     */
+    UUID resetMoneyByTags(@NotNull Map<String, Object> tags,
+                          int amount, @Nullable String reason) throws StorageException;
+
+    /**
+     * Resets the balance for a specific set of tags to 0.
      *
      * @param tags   A map of tags that identify the account to reset (must include "currency" when multi-currency).
      * @param reason Operation reason (Or an operation description).
      * @return Transaction id.
      * @throws StorageException if there is an error while updating the storage.
      */
-    UUID resetMoneyByTags(@NotNull Map<String, Object> tags, @Nullable String reason) throws StorageException;
+    default UUID resetMoneyByTags(@NotNull Map<String, Object> tags,
+                                  @Nullable String reason) throws StorageException {
+        return resetMoneyByTags(tags, 0, reason);
+    }
 
     /**
-     * Resets the amount of money for a specific tag.
-     * When multiple currencies are configured, use {@link #resetMoneyByTags(Map, String)} instead.
+     * Resets the balance for a specific tag to the given amount (default 0).
+     * When multiple currencies are configured, use {@link #resetMoneyByTags(Map, int, String)} instead.
      *
-     * @param tagName    The name of the tag.
-     * @param tagValue  The value of the tag.
-     * @param reason Operation reason (Or an operation description).
+     * @param tagName  The name of the tag.
+     * @param tagValue The value of the tag.
+     * @param amount   The amount to set the balance to after reset.
+     * @param reason   Operation reason (Or an operation description).
      * @return Transaction id.
      * @throws StorageException if there is an error while updating the storage.
      */
     UUID resetMoneyByTag(@NotNull String tagName, @NotNull Object tagValue,
-                         @Nullable String reason) throws StorageException;
+                         int amount, @Nullable String reason) throws StorageException;
+
+    /**
+     * Resets the balance for a specific tag to 0.
+     * When multiple currencies are configured, use {@link #resetMoneyByTags(Map, int, String)} instead.
+     *
+     * @param tagName  The name of the tag.
+     * @param tagValue The value of the tag.
+     * @param reason   Operation reason (Or an operation description).
+     * @return Transaction id.
+     * @throws StorageException if there is an error while updating the storage.
+     */
+    default UUID resetMoneyByTag(@NotNull String tagName, @NotNull Object tagValue,
+                                 @Nullable String reason) throws StorageException {
+        return resetMoneyByTag(tagName, tagValue, 0, reason);
+    }
     /**
      * Sets the amount of money for a specific tag.
      *
@@ -245,7 +276,7 @@ public interface MileBanksIAPI {
     @Deprecated
     default UUID resetMoneyByTag(@NotNull UUID player, @NotNull String tagName, @NotNull Object tagValue,
                                  int amount, @Nullable String reason) throws StorageException {
-        return resetMoneyByTag(tagName, tagValue, reason);
+        return resetMoneyByTag(tagName, tagValue, amount, reason);
     }
 
     /*

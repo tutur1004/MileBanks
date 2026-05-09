@@ -208,8 +208,9 @@ public class ESStorage implements StorageImplementation {
 
     @Override
     public @NotNull UUID resetMoneyToTags(@NotNull Map<String, Object> tags,
-                                          @Nullable String reason) throws StorageExecuteException {
-        Main.getMileLogger().debug("[ES-Sync] resetMoneyToTags - reset money for tags " + tags + ".");
+                                          int amount, @Nullable String reason) throws StorageExecuteException {
+        Main.getMileLogger().debug("[ES-Sync] resetMoneyToTags - reset money for tags " + tags
+                + " to amount " + amount + ".");
         BoolQuery.Builder boolQuery;
         if (tags.size() == 1) {
             Map.Entry<String, Object> entry = tags.entrySet().iterator().next();
@@ -222,16 +223,22 @@ public class ESStorage implements StorageImplementation {
                 boolQuery.must(q -> q.term(t -> t.field("tags." + key).value(value)));
             }
         }
+        // Build the query once — used for both reindex and deleteByQuery
+        BoolQuery builtQuery = boolQuery.build();
         try (ElasticsearchClient esClient = connection.getEsClient(getMapper())) {
             flushMoneyOperations();
             esClient.reindex(r -> r
                     .source(s -> s
                             .index(BANK_INDEX_TRANSACTIONS)
-                            .query(q -> q.bool(boolQuery.build()))
+                            .query(q -> q.bool(builtQuery))
                     )
                     .dest(d -> d.index(BANK_INDEX_TRANSACTIONS_ARCHIVED))
             );
-            return addOperation(tags, 0, reason);
+            esClient.deleteByQuery(r -> r
+                    .index(BANK_INDEX_TRANSACTIONS)
+                    .query(q -> q.bool(builtQuery))
+            );
+            return addOperation(tags, amount, reason);
         } catch (ElasticsearchException | IOException exception) {
             throw new StorageExecuteException(exception, "Error while trying to reindex transactions");
         }

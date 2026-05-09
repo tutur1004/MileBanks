@@ -33,5 +33,9 @@ public interface StorageImplementation extends CacheManager {
         return addMoneyToTags(tags, amount, reason);
     }
 
-    UUID resetMoneyToTags(@NotNull Map<String, Object> tags, String reason) throws StorageExecuteException;
+    UUID resetMoneyToTags(@NotNull Map<String, Object> tags, int amount, String reason) throws StorageExecuteException;
+
+    default UUID resetMoneyToTags(@NotNull Map<String, Object> tags, String reason) throws StorageExecuteException {
+        return resetMoneyToTags(tags, 0, reason);
+    }
 }

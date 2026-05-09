@@ -100,10 +100,10 @@ public class API implements MileBanksIAPI {
 
     @Override
     public UUID resetMoneyByTags(@NotNull Map<String, Object> tags,
-                                 @Nullable String reason) throws StorageException {
+                                 int amount, @Nullable String reason) throws StorageException {
         requireCurrencyTag(tags);
         try {
-            return Main.getStorage().resetMoneyToTags(tags, Objects.requireNonNullElse(reason,
+            return Main.getStorage().resetMoneyToTags(tags, amount, Objects.requireNonNullElse(reason,
                     "No reason provided, using API"));
         } catch (StorageExecuteException exception) {
             throw new StorageException(exception, exception.getMessage());
@@ -112,13 +112,13 @@ public class API implements MileBanksIAPI {
 
     @Override
     public UUID resetMoneyByTag(@NotNull String tagName, @NotNull Object tagValue,
-                                @Nullable String reason) throws StorageException {
+                                int amount, @Nullable String reason) throws StorageException {
         if (Main.isMultiCurrency()) {
             throw new MissingCurrencyException(Main.CURRENCIES);
         }
         try {
-            return Main.getStorage().resetMoneyToTags(Map.of(tagName, tagValue), Objects.requireNonNullElse(reason,
-                    "No reason provided, using API"));
+            return Main.getStorage().resetMoneyToTags(Map.of(tagName, tagValue), amount,
+                    Objects.requireNonNullElse(reason, "No reason provided, using API"));
         } catch (StorageExecuteException exception) {
             throw new StorageException(exception, exception.getMessage());
         }
