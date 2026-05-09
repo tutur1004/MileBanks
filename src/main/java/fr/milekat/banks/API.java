@@ -37,7 +37,10 @@ public class API implements MileBanksIAPI {
      * or if the provided currency value is not in the configured list.
      */
     private void requireCurrencyTag(@NotNull Map<String, Object> tags) throws StorageException {
-        if (!Main.isMultiCurrency()) return;
+        if (!Main.isMultiCurrency()) {
+            tags.remove("currency");
+            return;
+        }
         if (!tags.containsKey("currency")) {
             throw new MissingCurrencyException(Main.CURRENCIES);
         }
