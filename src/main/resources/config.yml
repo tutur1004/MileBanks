@@ -20,6 +20,9 @@ storage:
     replicas: 0
     # Delay between 2 saves to the database (in ticks, 20 ticks = 1 second)
     save-interval-ticks: 20
+    # Maximum number of pending operations before the plugin start to force save to the database
+    # (Recommended between 500 and 5000)
+    max-pending-operations: 1000
   cache:
     # Enable or disable cache accounts (Recommended)
     enabled: true

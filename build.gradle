@@ -7,7 +7,7 @@ allprojects {
     apply plugin: 'java'
 
     group = 'fr.milekat'
-    version = '1.5.0'
+    version = '1.5.1'
 
     repositories {
         mavenCentral()
@@ -15,7 +15,7 @@ allprojects {
         maven { url = "https://hub.spigotmc.org/nexus/content/repositories/snapshots/" }
         maven { url = "https://libraries.minecraft.net/" }
         maven {
-            url = uri("https://maven.pkg.github.com/tutur1004/MileNpc")
+            url = uri("https://maven.pkg.github.com/tutur1004/MilekatUtils")
             credentials {
                 username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
                 password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
@@ -56,7 +56,7 @@ dependencies {
     implementation project('mile-banks-api')
 
     //  Utils
-    compileOnly group: 'fr.milekat', name: 'milekat-utils', version: '1.8.0'
+    compileOnly group: 'fr.milekat', name: 'milekat-utils', version: '1.9.1'
     compileOnly group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.18.3'
     compileOnly group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: '2.18.3'
 
