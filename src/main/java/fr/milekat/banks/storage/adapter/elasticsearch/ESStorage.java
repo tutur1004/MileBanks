@@ -91,7 +91,7 @@ public class ESStorage implements StorageImplementation {
         this.BANK_INDEX_ACCOUNTS = prefix + "accounts";
         this.numberOfReplicas = config.getString("storage.elasticsearch.replicas", "0");
         this.SAVE_INTERVAL_TICKS = config.getLong("storage.elasticsearch.save-interval-ticks", 20L);
-        this.MAX_PENDING_OPERATIONS = config.getInt("storage.elasticsearch.max-pending-operations", 10000);
+        this.MAX_PENDING_OPERATIONS = config.getInt("storage.elasticsearch.max-pending-operations", 1000);
         this.mapper = createMapper();
 
         transactions_fields.put("operation", Double.class);
@@ -332,7 +332,7 @@ public class ESStorage implements StorageImplementation {
                                        @Nullable String reason) throws StorageExecuteException {
         int currentSize = moneyOperations.size();
         if (currentSize >= MAX_PENDING_OPERATIONS) {
-            if (currentSize >= MAX_PENDING_OPERATIONS * 2) {
+            if (currentSize >= MAX_PENDING_OPERATIONS * 10) {
                 Main.getMileLogger().severe("Storage buffer critically full (" + currentSize +
                         "). Rejecting operation to prevent memory overflow.");
                 throw new StorageExecuteException(
