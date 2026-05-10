@@ -100,11 +100,15 @@ All subcommands require the `mile-banks.admin` permission.
 
 ## API
 
-Add `mile-banks-api` to your project via the [GitHub Packages](https://github.com/tutur1004/MileBanks/packages).
+Add `mile-banks-api` to your project via the [MavenCentral](https://central.sonatype.com/artifact/fr.milekat/mile-banks-api).
 
 ```java
+RegisteredServiceProvider<MileBanksIAPI> provider = Bukkit.getServicesManager().getRegistration(MileBanksIAPI.class);
+if (provider == null) return; // Plugin not loaded
+
+MileBanksIAPI api = provider.getProvider();
+
 try {
-    MileBanksIAPI api = MileBanksAPI.getApi();
 
     // --- Single currency ---
     Map<String, Object> tags = new HashMap<>();
@@ -137,8 +141,6 @@ try {
     // e.getCurrency(), e.getAvailableCurrencies()
 } catch (StorageException e) {
     // Other storage error
-} catch (ApiUnavailable e) {
-    // Plugin not loaded
 }
 ```
 
