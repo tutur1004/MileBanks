@@ -364,6 +364,7 @@ public class ESStorage implements StorageImplementation {
                 ).build()
         );
 
+        // Fire event on main thread
         Bukkit.getScheduler().runTask(Main.getInstance(), () ->
                 Bukkit.getPluginManager().callEvent(
                         new MoneySavedSuccessfully(transactionId, tags, amount, finalReason)
@@ -373,19 +374,21 @@ public class ESStorage implements StorageImplementation {
         return transactionId;
     }
 
-    // -------------------------------------------------------------------------
-    // Flush
-    // -------------------------------------------------------------------------
-
+    /**
+     * Starts the periodic save operation routine using Bukkit's scheduler
+     */
     private void startSaveOperation() {
         this.saveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
                 Main.getInstance(),
                 this::flushMoneyOperations,
-                50L,
+                50L, // Initial delay (2.5 seconds)
                 SAVE_INTERVAL_TICKS
         );
     }
 
+    /**
+     * Flushes all pending money operations to Elasticsearch
+     */
     private void flushMoneyOperations() {
         if (moneyOperations.isEmpty()) return;
 

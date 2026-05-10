@@ -12,7 +12,6 @@ import fr.milekat.utils.storage.StorageConnection;
 import fr.milekat.utils.storage.StorageLoader;
 import fr.milekat.utils.storage.StorageVendor;
 import fr.milekat.utils.storage.adapter.elasticsearch.connection.ESConnection;
-import fr.milekat.utils.storage.adapter.sql.connection.SQLConnection;
 import fr.milekat.utils.storage.exceptions.StorageLoadException;
 import fr.milekat.utils.storage.utils.StorageConfig;
 import org.bukkit.Bukkit;
