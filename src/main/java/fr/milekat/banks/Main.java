@@ -5,7 +5,7 @@ import fr.milekat.banks.commands.MoneyCmd;
 import fr.milekat.banks.listeners.DefaultTags;
 import fr.milekat.banks.storage.StorageImplementation;
 import fr.milekat.banks.storage.adapter.elasticsearch.ESStorage;
-import fr.milekat.banks.utils.BankAccount;
+import fr.milekat.banks.api.classes.BankAccount;
 import fr.milekat.utils.Configs;
 import fr.milekat.utils.MileLogger;
 import fr.milekat.utils.storage.StorageConnection;

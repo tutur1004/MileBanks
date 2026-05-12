@@ -18,7 +18,7 @@ import fr.milekat.banks.Main;
 import fr.milekat.banks.api.events.MoneySavedSuccessfully;
 import fr.milekat.banks.storage.CacheManager;
 import fr.milekat.banks.storage.StorageImplementation;
-import fr.milekat.banks.utils.BankAccount;
+import fr.milekat.banks.api.classes.BankAccount;
 import fr.milekat.utils.Configs;
 import fr.milekat.utils.DateMileKat;
 import fr.milekat.utils.storage.adapter.elasticsearch.connection.ESConnection;
