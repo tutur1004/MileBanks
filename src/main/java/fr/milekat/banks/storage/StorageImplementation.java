@@ -1,5 +1,6 @@
 package fr.milekat.banks.storage;
 
+import fr.milekat.banks.api.classes.BankAccount;
 import fr.milekat.utils.storage.exceptions.StorageExecuteException;
 import org.jetbrains.annotations.NotNull;
 
@@ -24,6 +25,9 @@ public interface StorageImplementation extends CacheManager {
      */
 
     int getMoneyFromTags(@NotNull Map<String, Object> tags) throws StorageExecuteException;
+
+    Map<Integer, BankAccount> getBankAccountsFromTags(@NotNull Map<String, Object> tags, int size, int page)
+            throws StorageExecuteException;
 
     UUID addMoneyToTags(@NotNull Map<String, Object> tags, int amount, String reason) throws StorageExecuteException;
 

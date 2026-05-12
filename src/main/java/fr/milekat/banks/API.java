@@ -1,6 +1,7 @@
 package fr.milekat.banks;
 
 import fr.milekat.banks.api.MileBanksIAPI;
+import fr.milekat.banks.api.classes.BankAccount;
 import fr.milekat.banks.api.exceptions.MissingCurrencyException;
 import fr.milekat.banks.api.exceptions.StorageException;
 import fr.milekat.banks.api.exceptions.UnknownCurrencyException;
@@ -72,6 +73,17 @@ public class API implements MileBanksIAPI {
         requireCurrencyTag(tags);
         try {
             return Main.getStorage().getCacheBalance(tags);
+        } catch (StorageExecuteException exception) {
+            throw new StorageException(exception, exception.getMessage());
+        }
+    }
+
+    @Override
+    public Map<Integer, BankAccount> getBankAccountsFromTags(@NotNull Map<String, Object> tags, int size, int page)
+            throws StorageException {
+        requireCurrencyTag(tags);
+        try {
+            return Main.getStorage().getBankAccountsFromTags(tags, size, page);
         } catch (StorageExecuteException exception) {
             throw new StorageException(exception, exception.getMessage());
         }

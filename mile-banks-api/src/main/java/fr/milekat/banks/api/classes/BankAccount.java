@@ -1,4 +1,4 @@
-package fr.milekat.banks.utils;
+package fr.milekat.banks.api.classes;
 
 import java.util.Map;
 

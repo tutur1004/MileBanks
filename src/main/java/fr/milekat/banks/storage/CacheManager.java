@@ -1,7 +1,7 @@
 package fr.milekat.banks.storage;
 
 import fr.milekat.banks.Main;
-import fr.milekat.banks.utils.BankAccount;
+import fr.milekat.banks.api.classes.BankAccount;
 import fr.milekat.utils.storage.exceptions.StorageExecuteException;
 import org.jetbrains.annotations.NotNull;
 
