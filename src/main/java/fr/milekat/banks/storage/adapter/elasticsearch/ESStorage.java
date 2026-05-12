@@ -2,6 +2,7 @@ package fr.milekat.banks.storage.adapter.elasticsearch;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
@@ -278,6 +279,52 @@ public class ESStorage implements StorageImplementation {
             }
         }
         throw lastException;
+    }
+
+    @Override
+    public Map<Integer, BankAccount> getBankAccountsFromTags(@NotNull Map<String, Object> tags, int size, int page) throws StorageExecuteException {
+        Main.getMileLogger().debug("[ES-Sync] getBankAccountsFromTags - search accounts with tags " + tags +
+                ", size=" + size + ", page=" + page + ".");
+        SearchRequest.Builder requestBuilder = new SearchRequest.Builder()
+                .index(BANK_INDEX_ACCOUNTS)
+                .sort(s -> s.field(f -> f.field("amount").order(SortOrder.Desc)))
+                .from(page * size)
+                .size(size);
+        if (tags.isEmpty()) {
+            requestBuilder.query(q -> q.matchAll(m -> m));
+        } else if (tags.size() == 1) {
+            Map.Entry<String, Object> entry = tags.entrySet().iterator().next();
+            requestBuilder.query(q -> q.bool(Builders.getBuilder(entry.getKey(), entry.getValue()).build()));
+        } else {
+            BoolQuery.Builder boolQuery = new BoolQuery.Builder();
+            for (Map.Entry<String, Object> tag : tags.entrySet()) {
+                String key = tag.getKey();
+                String value = tag.getValue().toString();
+                boolQuery.must(q -> q.term(t -> t.field(key).value(value)));
+            }
+            requestBuilder.query(q -> q.bool(boolQuery.build()));
+        }
+        try {
+            ElasticsearchClient esClient = connection.getEsClient(mapper);
+            SearchResponse<ObjectNode> response = esClient.search(requestBuilder.build(), ObjectNode.class);
+            Map<Integer, BankAccount> result = new LinkedHashMap<>();
+            int rank = page * size + 1;
+            for (Hit<ObjectNode> hit : response.hits().hits()) {
+                if (hit.source() == null) continue;
+                ObjectNode source = hit.source();
+                int balance = source.has("amount") ? source.get("amount").asInt() : 0;
+                Map<String, Object> accountTags = new HashMap<>();
+                for (String tagKey : Main.TAGS.keySet()) {
+                    if (source.has(tagKey)) {
+                        accountTags.put(tagKey, source.get(tagKey).asText());
+                    }
+                }
+                result.put(rank++, new BankAccount(accountTags, balance));
+            }
+            return result;
+        } catch (ElasticsearchException | IOException e) {
+            throw new StorageExecuteException(e, "Error fetching bank accounts from Elasticsearch");
+        }
     }
 
     @Override

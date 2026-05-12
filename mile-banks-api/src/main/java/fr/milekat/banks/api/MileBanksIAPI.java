@@ -1,5 +1,6 @@
 package fr.milekat.banks.api;
 
+import fr.milekat.banks.api.classes.BankAccount;
 import fr.milekat.banks.api.exceptions.StorageException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -71,6 +72,24 @@ public interface MileBanksIAPI {
      * @throws StorageException if there is an error accessing the storage.
      */
     int getMoneyByTags(@NotNull Map<String, Object> tags) throws StorageException;
+
+    /**
+     * Retrieves a paginated, rank-ordered list of bank accounts matching the given tags.
+     * <p>
+     * Results are sorted by balance descending. The map key represents the global rank of each
+     * account (e.g. page 0 → ranks 1...size, page 1 → ranks size+1...2*size).
+     * Pass an empty {@code tags} map to match all accounts regardless of tags.
+     *
+     * @param tags A map of tag names to values used to filter accounts.
+     *             Pass an empty map to retrieve accounts without tag filtering.
+     * @param size The maximum number of accounts to return per page.
+     * @param page The zero-based page index.
+     * @return A {@link Map} where each key is the global rank (1-based) and the value is the
+     *         corresponding {@link BankAccount}, ordered by descending balance.
+     * @throws StorageException if there is an error accessing the storage.
+     */
+    Map<Integer, BankAccount> getBankAccountsFromTags(@NotNull Map<String, Object> tags, int size, int page)
+            throws StorageException;
 
     /*
         Add money
